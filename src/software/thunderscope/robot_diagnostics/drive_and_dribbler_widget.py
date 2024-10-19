@@ -21,10 +21,13 @@ class DriveAndDribblerWidget(QWidget):
         self.proto_unix_io = proto_unix_io
 
         # Add widgets to layout
-        layout.addWidget(self.setup_direct_velocity("Drive"))
+        layout.addWidget(self.setup_switch_drive_mode("Drive Mode Switch"))
+        layout.addWidget(self.setup_direct_velocity("Drive - Direct Velocity"))
+        layout.addWidget(self.setup_per_motor("Drive - Per Motor"))
         layout.addWidget(self.setup_dribbler("Dribbler"))
 
         self.enabled = True
+        self.perMotorControl = False
 
         self.setLayout(layout)
 
@@ -54,12 +57,24 @@ class DriveAndDribblerWidget(QWidget):
         value_str = "%.2f" % value
         return value_str
 
+    def setup_switch_drive_mode(self, title: str) -> QGroupBox:
+        group_box = QGroupBox(title)
+        dbox = QVBoxLayout()
+        self.switch_drive_mode = QPushButton("Switch Drive Modes")
+        self.switch_drive_mode.clicked.connect(self.switch_drive_mode())
+        dbox.addWidget(
+            self.switch_drive_mode, alignment=Qt.AlignmentFlag.AlignCenter
+        )
+
+        group_box.setLayout(dbox)
+        return group_box
+
     def setup_direct_velocity(self, title: str) -> QGroupBox:
         """Create a widget to control the direct velocity of the robot's motors
 
         :param title: the name of the slider
         """
-        group_box = QGroupBox(title)
+        group_box = QGroupBox(title)+
         dbox = QVBoxLayout()
 
         (
@@ -101,22 +116,65 @@ class DriveAndDribblerWidget(QWidget):
             self.x_velocity_slider, self.x_velocity_label, self.value_change
         )
         common_widgets.enable_slider(
+            self.x_velocity_slider, self.x_velocity_label, self.value_change
+        )
+        common_widgets.enable_slider(
             self.y_velocity_slider, self.y_velocity_label, self.value_change
         )
         common_widgets.enable_slider(
             self.angular_velocity_slider, self.angular_velocity_label, self.value_change
         )
 
-        self.stop_and_reset_direct = QPushButton("Stop and Reset")
-        self.stop_and_reset_direct.clicked.connect(self.reset_direct_sliders)
+        self.stop_and_reset_direct_velocity = QPushButton("Stop and Reset Direct Velocity")
+        self.stop_and_reset_direct_velocity.clicked.connect(self.reset_direct_velocity_sliders)
 
         dbox.addLayout(x_layout)
         dbox.addLayout(y_layout)
         dbox.addLayout(dps_layout)
         dbox.addWidget(
-            self.stop_and_reset_direct, alignment=Qt.AlignmentFlag.AlignCenter
+            self.stop_and_reset_direct_velocity, alignment=Qt.AlignmentFlag.AlignCenter
         )
 
+        group_box.setLayout(dbox)
+
+        return group_box
+
+    def setup_per_motor(self, title: str) -> QGroupBox:
+        """Create a widget to control the direct velocity of the robot's motors
+
+        :param title: the name of the slider
+        """
+        group_box = QGroupBox(title)
+        dbox = QVBoxLayout()
+        # create a power slider for each motor
+        motors = ["front right", "front left", "back right", "back left"]
+        self.motor_power_sliders = []
+        power_layout = []
+        motor_max_power = 1
+        for i, motor in motors:
+            (
+                power_layout[i],
+                self.motor_power_sliders[i],
+                self.motor_power_labels[i],
+            ) = common_widgets.create_float_slider(
+                f"{motors[i]}%",
+                2,
+                -motor_max_power,  # maybe there should be a max motor power?
+                motor_max_power,
+                3,
+            )
+
+        common_widgets.enable_slider(
+            self.motor_power_sliders[i], self.motor_power_labels[i], self.value_change
+        )
+        dbox.addLayout(power_layout[i])
+
+        self.stop_and_reset_per_motor = QPushButton("Stop and Reset Per Motor")
+        self.stop_and_reset_per_motor.clicked.connect(self.reset_per_motor_sliders())
+
+        dbox.addWidget(
+            self.stop_and_reset_per_motor, alignment=Qt.AlignmentFlag.AlignCenter
+        )
         group_box.setLayout(dbox)
 
         return group_box
@@ -148,7 +206,7 @@ class DriveAndDribblerWidget(QWidget):
             self.value_change,
         )
 
-        self.stop_and_reset_dribbler = QPushButton("Stop and Reset")
+        self.stop_and_reset_dribbler = QPushButton("Stop and Reset Dribbler")
         self.stop_and_reset_dribbler.clicked.connect(self.reset_dribbler_slider)
 
         dbox.addLayout(dribbler_layout)
@@ -159,79 +217,136 @@ class DriveAndDribblerWidget(QWidget):
 
         return group_box
 
-    def toggle_all(self, enable: bool) -> None:
-        """Disables or enables all sliders and buttons depending on boolean parameter
+    def switch_drive_mode(self):
+        # if using per motor, switch to direct velocity and vice versa
+        if self.perMotorControl:
+            # disconnect and reset per motor sliders
+            self.disconnect_per_motor_sliders()
+            self.reset_per_motor_sliders()
 
-        Updates listener functions and stylesheets accordingly
+            # enable direct velocity
+            self.enable_direct_velocity()
 
-        :param enable: boolean parameter, True is enable and False is disable
-        """
-        if enable:
-            if not self.enabled:
-                # disconnect all sliders
-                self.disconnect_sliders()
-
-                # enable all sliders by adding listener to update label with slider value
-                common_widgets.enable_slider(
-                    self.x_velocity_slider, self.x_velocity_label, self.value_change
-                )
-                common_widgets.enable_slider(
-                    self.y_velocity_slider, self.y_velocity_label, self.value_change
-                )
-                common_widgets.enable_slider(
-                    self.angular_velocity_slider,
-                    self.angular_velocity_label,
-                    self.value_change,
-                )
-                common_widgets.enable_slider(
-                    self.dribbler_speed_rpm_slider,
-                    self.dribbler_speed_rpm_label,
-                    self.value_change,
-                )
-
-                # enable buttons
-                common_widgets.change_button_state(self.stop_and_reset_dribbler, True)
-                common_widgets.change_button_state(self.stop_and_reset_direct, True)
-
-                # change enabled field
-                self.enabled = True
+            self.perMotorControl = False
         else:
-            if self.enabled:
-                # reset slider values and disconnect
-                self.reset_all_sliders()
-                self.disconnect_sliders()
+            # disconnect and reset direct velocity sliders
+            self.disconnect_direct_velocity_sliders()
+            self.reset_direct_velocity_sliders()
 
-                # disable all sliders by adding listener to keep slider value the same
-                common_widgets.disable_slider(self.x_velocity_slider)
-                common_widgets.disable_slider(self.y_velocity_slider)
-                common_widgets.disable_slider(self.angular_velocity_slider)
-                common_widgets.disable_slider(self.dribbler_speed_rpm_slider)
+            # enable per motor
+            self.enable_per_motor()
 
-                # disable buttons
-                common_widgets.change_button_state(self.stop_and_reset_dribbler, False)
-                common_widgets.change_button_state(self.stop_and_reset_direct, False)
+            self.perMotorControl = True
 
-                # change enabled field
-                self.enabled = False
+    def disable_direct_velocity(self):
+        # reset velocity slider values and disconnect
+        self.reset_velocity_sliders()
+        self.disconnect_velocity_sliders()
 
-    def disconnect_sliders(self) -> None:
-        """Disconnect listener for changing values for all sliders"""
+        # disable sliders by adding listener to keep slider value the same
+        common_widgets.disable_slider(self.x_velocity_slider)
+        common_widgets.disable_slider(self.y_velocity_slider)
+        common_widgets.disable_slider(self.angular_velocity_slider)
+
+        common_widgets.change_button_state(self.stop_and_reset_direct, False)
+
+    def disable_dribbler(self):
+        # reset dribbler slider values and disconnect
+        self.reset_dribbler_sliders()
+        self.disconnect_dribbler_sliders()
+
+        # disable dribbler slider by adding listener to keep slider value the same
+        common_widgets.disable_slider(self.dribbler_speed_rpm_slider)
+
+        # disable button
+        common_widgets.change_button_state(self.stop_and_reset_dribbler, False)
+
+    def disable_per_motor(self):
+        # reset per motor slider values and disconnect
+        self.reset_per_motor_sliders()
+        self.disconnect_per_motor_sliders()
+
+        # disable motor slider by adding listener to keep slider value the same
+        [common_widgets.disable_slider(per_motor_slider) for per_motor_slider in self.motor_power_sliders]
+
+        # disable per motor stop/reset button
+        common_widgets.change_button_state(self.stop_and_reset_per_motor, False)
+
+    def enable_dribbler(self):
+        common_widgets.enable_slider(
+            self.dribbler_speed_rpm_slider,
+            self.dribbler_speed_rpm_label,
+            self.value_change,
+        )
+
+        # enable dribbler button+
+        common_widgets.change_button_state(self.stop_and_reset_dribbler, True)
+
+    def enable_direct_velocity(self):
+        # reset motor control
+        self.reset_direct_velocity_sliders()
+        # enable all sliders by adding listener to update label with slider value
+        common_widgets.enable_slider(
+            self.x_velocity_slider, self.x_velocity_label, self.value_change
+        )
+        common_widgets.enable_slider(
+            self.y_velocity_slider, self.y_velocity_label, self.value_change
+        )
+        common_widgets.enable_slider(
+            self.angular_velocity_slider,
+            self.angular_velocity_label,
+            self.value_change,
+        )
+
+        common_widgets.change_button_state(self.stop_and_reset_direct_velocity, True)
+
+    def enable_per_motor(self):
+        # reset motor control
+        self.reset_per_motor_sliders()
+        # enable all sliders by adding listener to update label with slider value
+        for i, per_motor_slider in self.motor_power_sliders:
+            common_widgets.enable_slider(
+                per_motor_slider, self.motor_power_labels[i], self.value_change
+            )
+
+        common_widgets.change_button_state(self.stop_and_reset_per_motor, True)
+
+    def disconnect_direct_velocity_sliders(self) -> None:
+        """Disconnect listener for changing values for velocity sliders"""
         self.x_velocity_slider.valueChanged.disconnect()
         self.y_velocity_slider.valueChanged.disconnect()
         self.angular_velocity_slider.valueChanged.disconnect()
+
+    def disconnect_dribbler_sliders(self) -> None:
+        """Disconnect listener for changing values for dribbler sliders"""
         self.dribbler_speed_rpm_slider.valueChanged.disconnect()
 
-    def reset_direct_sliders(self) -> None:
+    def disconnect_per_motor_sliders(self) -> None:
+        """Disconnect listener for changing values for motor sliders"""
+        [motor_power_slider.valueChanged.disconnect() for motor_power_slider in self.motor_power_sliders]
+
+    def disconnect_all_sliders(self) -> None:
+        """Reset all sliders back to 0"""
+        self.disconnect_dribbler_sliders()
+        self.disconnect_per_motor_sliders()
+        self.disconnect_direct_velocity_sliders()
+
+    def reset_direct_velocity_sliders(self) -> None:
         """Reset direct sliders back to 0"""
         self.x_velocity_slider.setValue(0)
         self.y_velocity_slider.setValue(0)
         self.angular_velocity_slider.setValue(0)
 
-    def reset_dribbler_slider(self) -> None:
+    def reset_per_motor_sliders(self) -> None:
+        """Reset motor sliders back to 0"""
+        [motor_power_slider.setValue(0) for motor_power_slider in self.motor_power_sliders]
+
+    def reset_dribbler_sliders(self) -> None:
         """Reset the dribbler slider back to 0"""
         self.dribbler_speed_rpm_slider.setValue(0)
 
     def reset_all_sliders(self) -> None:
         """Reset all sliders back to 0"""
-        self.reset_direct_sliders()
+        self.reset_direct_velocity_sliders()
         self.reset_dribbler_slider()
+        self.reset_per_motor_sliders()
