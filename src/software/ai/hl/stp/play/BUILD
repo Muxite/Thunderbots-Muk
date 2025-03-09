@@ -36,8 +36,8 @@ cc_library(
 
 cc_library(
     name = "kickoff_enemy_play",
-    srcs = ["kickoff_enemy_play.cpp"],
-    hdrs = ["kickoff_enemy_play.h"],
+    srcs = ["kickoff_friendly/kickoff_enemy_play.cpp"],
+    hdrs = ["kickoff_friendly/kickoff_enemy_play.h"],
     deps = [
         ":play",
         "//shared:constants",
@@ -54,8 +54,8 @@ cc_library(
 
 cc_library(
     name = "kickoff_friendly_play",
-    srcs = ["kickoff_friendly_play.cpp"],
-    hdrs = ["kickoff_friendly_play.h"],
+    srcs = ["kickoff_friendly/kickoff_friendly_play.cpp"],
+    hdrs = ["kickoff_friendly/kickoff_friendly_play.h"],
     deps = [
         ":play",
         "//shared:constants",
@@ -172,7 +172,7 @@ cc_test(
 
 cc_test(
     name = "kickoff_friendly_play_cpp_test",
-    srcs = ["kickoff_friendly_play_test.cpp"],
+    srcs = ["kickoff_friendly/kickoff_friendly_play_test.cpp"],
     deps = [
         "//shared/test_util:tbots_gtest_main",
         "//software/ai/hl/stp/play:kickoff_friendly_play",
@@ -188,7 +188,7 @@ cc_test(
 
 cc_test(
     name = "kickoff_enemy_play_cpp_test",
-    srcs = ["kickoff_enemy_play_test.cpp"],
+    srcs = ["kickoff_friendly/kickoff_enemy_play_test.cpp"],
     deps = [
         "//shared/test_util:tbots_gtest_main",
         "//software/ai/hl/stp/play:kickoff_enemy_play",
@@ -206,7 +206,7 @@ cc_test(
 py_test(
     name = "kickoff_play_test",
     srcs = [
-        "kickoff_play_test.py",
+        "kickoff_friendly/kickoff_play_test.py",
     ],
     # TODO (#2619) Remove tag to run in parallel
     tags = [
