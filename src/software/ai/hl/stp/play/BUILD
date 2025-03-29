@@ -22,8 +22,8 @@ cc_library(
 
 cc_library(
     name = "kickoff_enemy_play",
-    srcs = ["kickoff_friendly/kickoff_enemy_play.cpp"],
-    hdrs = ["kickoff_friendly/kickoff_enemy_play.h"],
+    srcs = ["kickoff_enemy_play.cpp"],
+    hdrs = ["kickoff_enemy_play.h"],
     deps = [
         ":play",
         "//shared:constants",
@@ -174,7 +174,7 @@ cc_test(
 
 cc_test(
     name = "kickoff_enemy_play_cpp_test",
-    srcs = ["kickoff_friendly/kickoff_enemy_play_test.cpp"],
+    srcs = ["kickoff_enemy_play_test.cpp"],
     deps = [
         "//shared/test_util:tbots_gtest_main",
         "//software/ai/hl/stp/play:kickoff_enemy_play",
