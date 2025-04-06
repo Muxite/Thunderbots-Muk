@@ -59,14 +59,13 @@ struct KickoffFriendlyPlayFSM
 
         DEFINE_SML_ACTION(kickoff)
 
-        DEFINE_SML_GUARD(start)
+        DEFINE_SML_GUARD(started)
         DEFINE_SML_GUARD(shotDone)
 
         return make_transition_table(
                 // src_state + event [guard] / action = dest_state
                 *SetupState_S + Update_E / setupKickoff_A = SetupState_S,
-                SetupState_S + Update_E[start] = KickState_S,
-
+                SetupState_S + Update_E[started] = KickState_S,
                 X + Update_E                                     = X);
     }
 

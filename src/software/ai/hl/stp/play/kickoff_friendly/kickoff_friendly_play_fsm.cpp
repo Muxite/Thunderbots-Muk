@@ -76,6 +76,7 @@ void KickoffFriendlyPlayFSM::kickoff(const Update& event)
             world_ptr->ball().position(),
             world_ptr->field().centerPoint() +
             Vector(world_ptr->field().xLength() / 6, 0));
+
     tactics_to_return[0].emplace_back(kickoff_chip_tactic);
 
     // the robot at position 0 will be closest to the ball, so positions starting from
@@ -87,4 +88,9 @@ void KickoffFriendlyPlayFSM::kickoff(const Update& event)
         tactics_to_return[0].emplace_back(move_tactics.at(i));
     }
     event.common.set_tactics(tactics_to_return);
+}
+
+bool KickoffFriendlyPlayFSM::started(const Update &event)
+{
+    return world_ptr->gameState().isPlaying();
 }
