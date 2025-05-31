@@ -44,6 +44,12 @@ struct KickoffFriendlyPlayFSM
      */
     void kickoff(const Update& event);
 
+    /**
+     * Guard that checks if the ball can be kicked.
+     *
+     * @param event
+     */
+    void canKick(const Update& event);
 
     auto operator()()
     {
@@ -59,17 +65,19 @@ struct KickoffFriendlyPlayFSM
 
         DEFINE_SML_ACTION(kickoff)
 
-        DEFINE_SML_GUARD(started)
-        DEFINE_SML_GUARD(shotDone)
+        DEFINE_SML_GUARD(canKick)
 
         return make_transition_table(
                 // src_state + event [guard] / action = dest_state
                 *SetupState_S + Update_E / setupKickoff_A = SetupState_S,
-                SetupState_S + Update_E[started] = KickState_S,
+                SetupState_S + Update_E[canKick] = KickState_S,
                 X + Update_E                                     = X);
     }
 
 private:
     TbotsProto::AiConfig ai_config;
-    std::vector<std::shared_ptr<CreaseDefenderTactic>> crease_defenders;
+    std::shared_ptr<MoveTactic> move_tactic;
+    std::shared_ptr<PrepareKickoffMoveTactic> prepare_kickoff_move_tactic;
+    std::vector<std::shared_ptr<MoveTactic>> move_tactics;
+    std::shared_ptr<KickoffChipTactic> kickoff_chip_tactic;
 };

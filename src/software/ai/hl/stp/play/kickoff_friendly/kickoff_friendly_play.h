@@ -1,7 +1,7 @@
 #pragma once
 
-#include "proto/parameters.pb.h"
-#include "software/ai/hl/stp/play/play.h"
+#include "software/ai/hl/stp/play/free_kick/free_kick_play_fsm.h"
+
 
 /**
  * A play that runs when its currently the friendly kick off,
@@ -9,9 +9,20 @@
  */
 class KickoffFriendlyPlay : public Play
 {
-   public:
+public:
+    /**
+    * Creates a friendly kickoff play
+    *
+    * @param ai_config the play config for this play
+    */
     KickoffFriendlyPlay(TbotsProto::AiConfig config);
 
     void getNextTactics(TacticCoroutine::push_type &yield,
                         const WorldPtr &world_ptr) override;
+    void updateTactics(const PlayUpdate &play_update) override;
+    std::vector<std::string> getState() override;
+
+private:
+    FSM<KickoffFriendlyPlay> fsm;
+    KickoffFriendlyPlay::ControlParams control_params;
 };

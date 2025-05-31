@@ -1,14 +1,38 @@
 #include "software/ai/hl/stp/play/kickoff_friendly/kickoff_friendly_play_fsm.h"
 
-KickoffFriendlyPlayFSM ::KickoffFriendlyPlayFSM(TbotsProto::AiConfig ai_config)
-        : ai_config(ai_config), // add things
+KickoffFriendlyPlayFSM::KickoffFriendlyPlayFSM(TbotsProto::AiConfig& ai_config)
+    : ai_config(ai_config),
+        move_tactic(std::make_shared<MoveTactic>()),
+        prepare_kickoff_move_tactic(std::make_shared<PrepareKickoffMoveTactic>()),
+        kickoff_chip_tactic(std::makeshared<KickoffChipTactic>())
+
 {
 }
 
-void KickoffFriendlyPlayFSM::setupKickoff(const Update& event)
+void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &event)
 {
-    // **** this could be done once instead of redone every event
-
+    // Since we only have 6 robots at the maximum, the number one priority
+    // is the robot doing the kickoff up front. The goalie is the second most
+    // important, followed by 3 and 4 setup for offense. 5 and 6 will stay
+    // back near the goalie just in case the ball quickly returns to the friendly
+    // side of the field.
+    //
+    // 		+--------------------+--------------------+
+    // 		|                    |                    |
+    // 		|               3    |                    |
+    // 		|                    |                    |
+    // 		+--+ 5               |                 +--+
+    // 		|  |                 |                 |  |
+    // 		|  |               +-+-+               |  |
+    // 		|2 |               |1  |               |  |
+    // 		|  |               +-+-+               |  |
+    // 		|  |                 |                 |  |
+    // 		+--+ 6               |                 +--+
+    // 		|                    |                    |
+    // 		|               4    |                    |
+    // 		|                    |                    |
+    // 		+--------------------+--------------------+
+    //
     std::vector<Point> kickoff_setup_positions = {
         // Robot 1
         Point(world_ptr->field().centerPoint() +
@@ -35,16 +59,18 @@ void KickoffFriendlyPlayFSM::setupKickoff(const Update& event)
               world_ptr->field().friendlyGoalpostNeg().y()),
     };
 
-    std::vector<std::shared_ptr<MoveTactic>> move_tactics = {
-        std::make_shared<PrepareKickoffMoveTactic>(), std::make_shared<MoveTactic>(),
-        std::make_shared<MoveTactic>(), std::make_shared<MoveTactic>(),
-        std::make_shared<MoveTactic>()};
+    PriorityTacticVector tactics_to_run = {{}};
+
+    move_tactics = {
+        prepare_kickoff_move_tactic(), move_tactic(),
+        move_tactic(), move_tactic(),
+        move_tactic()};
 
     auto enemy_threats =
             getAllEnemyThreats(world_ptr->field(), world_ptr->friendlyTeam(),
                                world_ptr->enemyTeam(), world_ptr->ball(), false);
 
-    // first priority is the kicker.
+    // first priority requires the ability to kick and chip.
     move_tactics.at(0)->mutableRobotCapabilityRequirements() = {
             RobotCapability::Kick, RobotCapability::Chip};
 
@@ -53,22 +79,20 @@ void KickoffFriendlyPlayFSM::setupKickoff(const Update& event)
     {
         move_tactics.at(i)->updateControlParams(kickoff_setup_positions.at(i),
                                                 Angle::zero());
-        result[0].emplace_back(move_tactics.at(i));
+        tactics_to_run[0].emplace_back(move_tactics.at(i));
     }
 
-    PriorityTacticVector tactics_to_return = {{}};
-
-    event.common.set_tactics(tactics_to_return);
+    event.common.set_tactics(tactics_to_run);
 }
 
-void KickoffFriendlyPlayFSM::kickoff(const Update& event)
+void KickoffFriendlyPlayFSM::kickoff(const KickoffFriendlyPlayFSM::Update &event)
 {
 
     auto enemy_threats =
             getAllEnemyThreats(world_ptr->field(), world_ptr->friendlyTeam(),
                                world_ptr->enemyTeam(), world_ptr->ball(), false);
 
-    PriorityTacticVector tactics_to_return = {{}};
+    PriorityTacticVector tactics_to_run = {{}};
 
     // TODO (#2612): This needs to be adjusted post field testing, ball needs to land
     // exactly in the middle of the enemy field
@@ -77,7 +101,7 @@ void KickoffFriendlyPlayFSM::kickoff(const Update& event)
             world_ptr->field().centerPoint() +
             Vector(world_ptr->field().xLength() / 6, 0));
 
-    tactics_to_return[0].emplace_back(kickoff_chip_tactic);
+    tactics_to_run[0].emplace_back(kickoff_chip_tactic);
 
     // the robot at position 0 will be closest to the ball, so positions starting from
     // 1 will be assigned to the rest of the robots
@@ -85,12 +109,12 @@ void KickoffFriendlyPlayFSM::kickoff(const Update& event)
     {
         move_tactics.at(i)->updateControlParams(kickoff_setup_positions.at(i),
                                                 Angle::zero());
-        tactics_to_return[0].emplace_back(move_tactics.at(i));
+        tactics_to_run[0].emplace_back(move_tactics.at(i));
     }
-    event.common.set_tactics(tactics_to_return);
+    event.common.set_tactics(tactics_to_run);
 }
 
-bool KickoffFriendlyPlayFSM::started(const Update &event)
+bool KickoffFriendlyPlayFSM::canKick(const KickoffFriendlyPlayFSM::Update &event)
 {
-    return world_ptr->gameState().isPlaying();
+    return world_ptr->gameState().canKick();
 }
