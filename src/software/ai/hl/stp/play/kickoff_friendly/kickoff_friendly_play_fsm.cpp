@@ -5,7 +5,6 @@ KickoffFriendlyPlayFSM::KickoffFriendlyPlayFSM(TbotsProto::AiConfig& ai_config)
         move_tactic(std::make_shared<MoveTactic>()),
         prepare_kickoff_move_tactic(std::make_shared<PrepareKickoffMoveTactic>()),
         kickoff_chip_tactic(std::makeshared<KickoffChipTactic>())
-
 {
 }
 

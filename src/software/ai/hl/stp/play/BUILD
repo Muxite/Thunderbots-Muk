@@ -39,22 +39,6 @@ cc_library(
 )
 
 cc_library(
-    name = "kickoff_friendly_play",
-    srcs = ["kickoff_friendly/kickoff_friendly_play.cpp"],
-    hdrs = ["kickoff_friendly/kickoff_friendly_play.h"],
-    deps = [
-        ":play",
-        "//shared:constants",
-        "//software/ai/evaluation:enemy_threat",
-        "//software/ai/hl/stp/tactic/chip:chip_tactic",
-        "//software/ai/hl/stp/tactic/move:move_tactic",
-        "//software/logger",
-        "//software/util/generic_factory",
-    ],
-    alwayslink = True,
-)
-
-cc_library(
     name = "shoot_or_chip_play",
     srcs = ["shoot_or_chip_play.cpp"],
     hdrs = ["shoot_or_chip_play.h"],
@@ -121,7 +105,6 @@ cc_library(
     deps = [
         ":example_play",
         ":kickoff_enemy_play",
-        ":kickoff_friendly_play",
         ":shoot_or_chip_play",
         ":stop_play",
         "//software/ai/hl/stp/play/ball_placement:ball_placement_play",
@@ -130,6 +113,7 @@ cc_library(
         "//software/ai/hl/stp/play/enemy_ball_placement:enemy_ball_placement_play",
         "//software/ai/hl/stp/play/enemy_free_kick:enemy_free_kick_play",
         "//software/ai/hl/stp/play/free_kick:free_kick_play",
+        "//software/ai/hl/stp/play/kickoff_friendly:kickoff_friendly_play",
         "//software/ai/hl/stp/play/halt_play",
         "//software/ai/hl/stp/play/hardware_challenge_plays:dribbling_parcour_play",
         "//software/ai/hl/stp/play/hardware_challenge_plays:pass_endurance_play",
@@ -192,7 +176,7 @@ cc_test(
 py_test(
     name = "kickoff_play_test",
     srcs = [
-        "kickoff_friendly/kickoff_play_test.py",
+        "kickoff_play_test.py",
     ],
     # TODO (#2619) Remove tag to run in parallel
     tags = [

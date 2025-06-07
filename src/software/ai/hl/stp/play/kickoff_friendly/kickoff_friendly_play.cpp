@@ -10,9 +10,8 @@
 KickoffFriendlyPlay::KickoffFriendlyPlay(TbotsProto::AiConfig config)
     : Play(config, true), fsm{KickoffFriendlyPlayFSM{config}}, control_params{}
 {
+
 }
-
-
 
 void KickoffFriendlyPlay::getNextTactics(TacticCoroutine::push_type &yield,
                                          const WorldPtr &world_ptr)
