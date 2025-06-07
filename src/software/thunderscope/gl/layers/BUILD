@@ -171,8 +171,8 @@ py_library(
 )
 
 py_library(
-    name = "gl_draw_polygon_obstacle",
-    srcs = ["gl_draw_polygon_obstacle.py"],
+    name = "gl_max_dribble_layer",
+    srcs = ["gl_max_dribble_layer.py"],
     deps = [
         ":gl_layer",
         "//software/thunderscope:util",
@@ -182,8 +182,8 @@ py_library(
 )
 
 py_library(
-    name = "gl_max_dribble_layer",
-    srcs = ["gl_max_dribble_layer.py"],
+    name = "gl_draw_polygon_obstacle",
+    srcs = ["gl_draw_polygon_obstacle.py"],
     deps = [
         ":gl_layer",
         "//software/thunderscope:util",
