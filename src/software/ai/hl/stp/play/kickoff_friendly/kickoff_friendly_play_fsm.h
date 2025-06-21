@@ -2,6 +2,8 @@
 
 #include "proto/parameters.pb.h"
 #include "shared/constants.h"
+#include "software/ai/evaluation/enemy_threat.h"
+#include "software/ai/hl/stp/play/play.h"
 #include "software/ai/hl/stp/play/play_fsm.h"
 #include "software/ai/hl/stp/tactic/move/move_tactic.h"
 #include "software/ai/hl/stp/tactic/chip/chip_tactic.h"
@@ -70,11 +72,12 @@ struct KickoffFriendlyPlayFSM
         return make_transition_table(
                 // src_state + event [guard] / action = dest_state
                 *SetupState_S + Update_E / setupKickoff_A = SetupState_S,
-                SetupState_S + Update_E[canKick] = KickState_S,
+                SetupState_S + Update_E[canKick_G] = KickState_S,
                 X + Update_E                                     = X);
     }
 
 private:
+    std::vector<Point> kickoff_setup_positions;
     TbotsProto::AiConfig ai_config;
     std::shared_ptr<MoveTactic> move_tactic;
     std::shared_ptr<PrepareKickoffMoveTactic> prepare_kickoff_move_tactic;

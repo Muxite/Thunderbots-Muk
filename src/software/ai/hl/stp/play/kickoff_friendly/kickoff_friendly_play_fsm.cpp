@@ -32,7 +32,7 @@ void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &
     // 		|                    |                    |
     // 		+--------------------+--------------------+
     //
-    std::vector<Point> kickoff_setup_positions = {
+    kickoff_setup_positions = {
         // Robot 1
         Point(world_ptr->field().centerPoint() +
               Vector(-world_ptr->field().centerCircleRadius(), 0)),
@@ -61,13 +61,9 @@ void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &
     PriorityTacticVector tactics_to_run = {{}};
 
     move_tactics = {
-        prepare_kickoff_move_tactic(), move_tactic(),
-        move_tactic(), move_tactic(),
-        move_tactic()};
-
-    auto enemy_threats =
-            getAllEnemyThreats(world_ptr->field(), world_ptr->friendlyTeam(),
-                               world_ptr->enemyTeam(), world_ptr->ball(), false);
+        prepare_kickoff_move_tactic, move_tactic,
+        move_tactic, move_tactic,
+        move_tactic};
 
     // first priority requires the ability to kick and chip.
     move_tactics.at(0)->mutableRobotCapabilityRequirements() = {
@@ -86,10 +82,6 @@ void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &
 
 void KickoffFriendlyPlayFSM::kickoff(const KickoffFriendlyPlayFSM::Update &event)
 {
-
-    auto enemy_threats =
-            getAllEnemyThreats(world_ptr->field(), world_ptr->friendlyTeam(),
-                               world_ptr->enemyTeam(), world_ptr->ball(), false);
 
     PriorityTacticVector tactics_to_run = {{}};
 
