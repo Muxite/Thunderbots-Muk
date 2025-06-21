@@ -1,4 +1,5 @@
 #include "software/ai/hl/stp/play/kickoff_friendly/kickoff_friendly_play.h"
+
 #include "shared/constants.h"
 #include "software/util/generic_factory/generic_factory.h"
 
@@ -12,11 +13,15 @@ void KickoffFriendlyPlay::getNextTactics(TacticCoroutine::push_type &yield,
                                          const WorldPtr &world_ptr)
 {
     // Does not get called.
+    while (true)
+    {
+        yield({{}});
+    }
 }
 
 void KickoffFriendlyPlay::updateTactics(const PlayUpdate &play_update)
 {
-    fsm.process_event(KickoffFriendlyPlay::Update(control_params, play_update));
+    fsm.process_event(KickoffFriendlyPlayFSM::Update(control_params, play_update));
 }
 
 std::vector<std::string> KickoffFriendlyPlay::getState()

@@ -1,14 +1,14 @@
 #include "software/ai/hl/stp/play/kickoff_friendly/kickoff_friendly_play_fsm.h"
 
-KickoffFriendlyPlayFSM::KickoffFriendlyPlayFSM(TbotsProto::AiConfig& ai_config)
+KickoffFriendlyPlayFSM::KickoffFriendlyPlayFSM(const TbotsProto::AiConfig &ai_config)
     : ai_config(ai_config),
         move_tactic(std::make_shared<MoveTactic>()),
         prepare_kickoff_move_tactic(std::make_shared<PrepareKickoffMoveTactic>()),
-        kickoff_chip_tactic(std::makeshared<KickoffChipTactic>())
+        kickoff_chip_tactic(std::make_shared<KickoffChipTactic>())
 {
 }
 
-void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &event)
+void KickoffFriendlyPlayFSM::setupKickoff(const Update &event)
 {
     // Since we only have 6 robots at the maximum, the number one priority
     // is the robot doing the kickoff up front. The goalie is the second most
@@ -32,6 +32,8 @@ void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &
     // 		|                    |                    |
     // 		+--------------------+--------------------+
     //
+    auto world_ptr = event.common.world_ptr;
+
     kickoff_setup_positions = {
         // Robot 1
         Point(world_ptr->field().centerPoint() +
@@ -80,8 +82,9 @@ void KickoffFriendlyPlayFSM::setupKickoff(const KickoffFriendlyPlayFSM::Update &
     event.common.set_tactics(tactics_to_run);
 }
 
-void KickoffFriendlyPlayFSM::kickoff(const KickoffFriendlyPlayFSM::Update &event)
+void KickoffFriendlyPlayFSM::kickoff(const Update &event)
 {
+    auto world_ptr = event.common.world_ptr;
 
     PriorityTacticVector tactics_to_run = {{}};
 
@@ -105,7 +108,7 @@ void KickoffFriendlyPlayFSM::kickoff(const KickoffFriendlyPlayFSM::Update &event
     event.common.set_tactics(tactics_to_run);
 }
 
-bool KickoffFriendlyPlayFSM::canKick(const KickoffFriendlyPlayFSM::Update &event)
+bool KickoffFriendlyPlayFSM::canKick(const KickoffFriendlyPlayFSM::Update& event)
 {
-    return world_ptr->gameState().canKick();
+    return event.common.world_ptr->gameState().canKick();
 }

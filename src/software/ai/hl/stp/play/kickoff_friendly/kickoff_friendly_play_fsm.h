@@ -12,15 +12,10 @@
 struct KickoffFriendlyPlayFSM
 {
     class KickState;
-
     class SetupState;
 
     struct ControlParams
     {
-        // The origin point of the enemy threat
-        Point enemy_threat_origin;
-        // The maximum allowed speed mode
-        TbotsProto::MaxAllowedSpeedMode max_allowed_speed_mode;
     };
 
     DEFINE_PLAY_UPDATE_STRUCT_WITH_CONTROL_AND_COMMON_PARAMS
@@ -30,7 +25,7 @@ struct KickoffFriendlyPlayFSM
      *
      * @param ai_config the play config for this play FSM
      */
-    explicit KickoffFriendlyPlayFSM(TbotsProto::AiConfig ai_config);
+    explicit KickoffFriendlyPlayFSM(const TbotsProto::AiConfig& ai_config);
 
     /**
      * Action to move robots to starting positions
@@ -51,20 +46,18 @@ struct KickoffFriendlyPlayFSM
      *
      * @param event
      */
-    void canKick(const Update& event);
+    bool canKick(const Update& event);
 
     auto operator()()
     {
         using namespace boost::sml;
 
         DEFINE_SML_STATE(SetupState)
-
         DEFINE_SML_STATE(KickState)
 
         DEFINE_SML_EVENT(Update)
 
         DEFINE_SML_ACTION(setupKickoff)
-
         DEFINE_SML_ACTION(kickoff)
 
         DEFINE_SML_GUARD(canKick)
@@ -73,14 +66,15 @@ struct KickoffFriendlyPlayFSM
                 // src_state + event [guard] / action = dest_state
                 *SetupState_S + Update_E / setupKickoff_A = SetupState_S,
                 SetupState_S + Update_E[canKick_G] = KickState_S,
+                KickState_S + Update_E / kickoff_A = KickState_S,
                 X + Update_E                                     = X);
     }
 
 private:
-    std::vector<Point> kickoff_setup_positions;
     TbotsProto::AiConfig ai_config;
     std::shared_ptr<MoveTactic> move_tactic;
     std::shared_ptr<PrepareKickoffMoveTactic> prepare_kickoff_move_tactic;
     std::vector<std::shared_ptr<MoveTactic>> move_tactics;
     std::shared_ptr<KickoffChipTactic> kickoff_chip_tactic;
+    std::vector<Point> kickoff_setup_positions;
 };
