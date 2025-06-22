@@ -41,6 +41,14 @@ struct KickoffFriendlyPlayFSM
      */
     void kickoff(const Update& event);
 
+
+    /**
+    * Guard that checks if positions are set up.
+    *
+    * @param event
+    */
+    bool setupDone(const Update& event);
+
     /**
      * Guard that checks if the ball can be kicked.
      *
@@ -60,14 +68,16 @@ struct KickoffFriendlyPlayFSM
         DEFINE_SML_ACTION(setupKickoff)
         DEFINE_SML_ACTION(kickoff)
 
+        DEFINE_SML_GUARD(setupDone)
         DEFINE_SML_GUARD(canKick)
 
         return make_transition_table(
                 // src_state + event [guard] / action = dest_state
-                *SetupState_S + Update_E / setupKickoff_A = SetupState_S,
-                SetupState_S + Update_E[canKick_G] = KickState_S,
-                KickState_S + Update_E / kickoff_A = KickState_S,
-                X + Update_E                                     = X);
+                // PlaySelectionFSM will transition to OffensePlay after the kick.
+                *SetupState_S + Update_E[!setupDone_G] / setupKickoff_A = SetupState_S,
+                SetupState_S + Update_E[setupDone_G && canKick_G]        = KickState_S,
+                KickState_S + Update_E / kickoff_A                       = KickState_S,
+                X + Update_E                                             = X);
     }
 
 private:

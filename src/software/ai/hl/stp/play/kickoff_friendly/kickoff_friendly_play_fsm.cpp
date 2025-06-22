@@ -108,6 +108,11 @@ void KickoffFriendlyPlayFSM::kickoff(const Update &event)
     event.common.set_tactics(tactics_to_run);
 }
 
+bool KickoffFriendlyPlayFSM::setupDone(const Update &event)
+{
+    return !event.common.world_ptr->gameState().isSetupState();
+}
+
 bool KickoffFriendlyPlayFSM::canKick(const KickoffFriendlyPlayFSM::Update& event)
 {
     return event.common.world_ptr->gameState().canKick();
