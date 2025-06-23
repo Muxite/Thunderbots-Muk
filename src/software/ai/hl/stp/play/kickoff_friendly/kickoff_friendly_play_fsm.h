@@ -28,6 +28,13 @@ struct KickoffFriendlyPlayFSM
     explicit KickoffFriendlyPlayFSM(const TbotsProto::AiConfig& ai_config);
 
     /**
+    * create a vector of setup positions if not already existing.
+    *
+    * @param world_ptr the world pointer
+    */
+    void createKickoffSetupPositions(const WorldPtr &world_ptr);
+
+    /**
      * Action to move robots to starting positions
      *
      * @param event the FSM event
@@ -47,7 +54,7 @@ struct KickoffFriendlyPlayFSM
     *
     * @param event
     */
-    bool setupDone(const Update& event);
+    bool isSetupDone(const Update& event);
 
     /**
      * Guard that checks if the ball can be kicked.
@@ -55,6 +62,14 @@ struct KickoffFriendlyPlayFSM
      * @param event
      */
     bool canKick(const Update& event);
+
+    /**
+    * Guard that checks if game has started (ball kicked).
+    *
+    * @param event
+    */
+    bool isPlaying(const Update& event);
+
 
     auto operator()()
     {
@@ -68,23 +83,23 @@ struct KickoffFriendlyPlayFSM
         DEFINE_SML_ACTION(setupKickoff)
         DEFINE_SML_ACTION(kickoff)
 
-        DEFINE_SML_GUARD(setupDone)
-        DEFINE_SML_GUARD(canKick)
+        DEFINE_SML_GUARD(isSetupDone)
+        //DEFINE_SML_GUARD(canKick)
+        DEFINE_SML_GUARD(isPlaying)
 
         return make_transition_table(
                 // src_state + event [guard] / action = dest_state
                 // PlaySelectionFSM will transition to OffensePlay after the kick.
-                *SetupState_S + Update_E[!setupDone_G] / setupKickoff_A = SetupState_S,
-                SetupState_S + Update_E[setupDone_G && canKick_G]        = KickState_S,
-                KickState_S + Update_E / kickoff_A                       = KickState_S,
-                X + Update_E                                             = X);
+                *SetupState_S + Update_E[!isSetupDone_G] / setupKickoff_A = SetupState_S,
+                SetupState_S  + Update_E[isSetupDone_G]                   = KickState_S,
+                KickState_S   + Update_E[!isPlaying_G] / kickoff_A        = KickState_S,
+                KickState_S   + Update_E[isPlaying_G]                     = X,
+                X + Update_E                                              = X);
     }
 
 private:
     TbotsProto::AiConfig ai_config;
-    std::shared_ptr<MoveTactic> move_tactic;
-    std::shared_ptr<PrepareKickoffMoveTactic> prepare_kickoff_move_tactic;
-    std::vector<std::shared_ptr<MoveTactic>> move_tactics;
     std::shared_ptr<KickoffChipTactic> kickoff_chip_tactic;
+    std::vector<std::shared_ptr<MoveTactic>> move_tactics;
     std::vector<Point> kickoff_setup_positions;
 };
