@@ -87,7 +87,7 @@ def test_kickoff_play(simulated_test_runner, is_friendly_test):
         inv_eventually_validation_sequence_set=[[]],
         ag_always_validation_sequence_set=[[]],
         ag_eventually_validation_sequence_set=[[]],
-        test_timeout_s=20,
+        test_timeout_s=10,
     )
 
 

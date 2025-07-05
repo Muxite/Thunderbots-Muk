@@ -5,14 +5,16 @@
 #include "software/ai/evaluation/enemy_threat.h"
 #include "software/ai/hl/stp/play/play.h"
 #include "software/ai/hl/stp/play/play_fsm.h"
+#include "software/ai/hl/stp/tactic/kick/kick_tactic.h"
 #include "software/ai/hl/stp/tactic/move/move_tactic.h"
 #include "software/ai/hl/stp/tactic/chip/chip_tactic.h"
 #include "software/logger/logger.h"
 
 struct KickoffFriendlyPlayFSM
 {
-    class KickState;
     class SetupState;
+    class ShootState;
+    class ChipState;
 
     struct ControlParams
     {
@@ -37,69 +39,93 @@ struct KickoffFriendlyPlayFSM
     /**
      * Action to move robots to starting positions
      *
-     * @param event the FSM event
+     * @param event the FreeKickPlayFSM Update event
      */
     void setupKickoff(const Update& event);
 
     /**
-     * Action to kick the ball.
+     * Action to shoot the ball at the net.
      *
-     * @param event the FSM event
+     * @param event the FreeKickPlayFSM Update event
      */
-    void kickoff(const Update& event);
+    void shootBall(const Update& event);
 
+    /**
+    * Action to chip the ball forward over the defenders.
+    *
+    * @param event the FreeKickPlayFSM Update event
+    */
+    void chipBall(const Update& event);
 
     /**
     * Guard that checks if positions are set up.
     *
-    * @param event
+    * @param event the FreeKickPlayFSM Update event
     */
     bool isSetupDone(const Update& event);
 
     /**
      * Guard that checks if the ball can be kicked.
      *
-     * @param event
+     * @param event the FreeKickPlayFSM Update event
      */
     bool canKick(const Update& event);
 
     /**
     * Guard that checks if game has started (ball kicked).
     *
-    * @param event
+    * @param event the FreeKickPlayFSM Update event
     */
     bool isPlaying(const Update& event);
 
+    /**
+    * Guard that checks if a direct shot on the net is possible.
+    *
+    * @param event the FreeKickPlayFSM Update event
+    */
+    bool shotFound(const Update& event);
 
     auto operator()()
     {
         using namespace boost::sml;
 
         DEFINE_SML_STATE(SetupState)
-        DEFINE_SML_STATE(KickState)
+        DEFINE_SML_STATE(ShootState)
+        DEFINE_SML_STATE(ChipState)
 
         DEFINE_SML_EVENT(Update)
 
         DEFINE_SML_ACTION(setupKickoff)
-        DEFINE_SML_ACTION(kickoff)
+        DEFINE_SML_ACTION(shootBall)
+        DEFINE_SML_ACTION(chipBall)
 
         DEFINE_SML_GUARD(isSetupDone)
-        //DEFINE_SML_GUARD(canKick)
+        DEFINE_SML_GUARD(shotFound)
         DEFINE_SML_GUARD(isPlaying)
 
         return make_transition_table(
                 // src_state + event [guard] / action = dest_state
                 // PlaySelectionFSM will transition to OffensePlay after the kick.
                 *SetupState_S + Update_E[!isSetupDone_G] / setupKickoff_A = SetupState_S,
-                SetupState_S  + Update_E[isSetupDone_G]                   = KickState_S,
-                KickState_S   + Update_E[!isPlaying_G] / kickoff_A        = KickState_S,
-                KickState_S   + Update_E[isPlaying_G]                     = X,
+
+                // shoot directly at net if possible.
+                SetupState_S  + Update_E[shotFound_G]                    = ShootState_S,
+                ShootState_S  + Update_E[!isPlaying_G] / shootBall_A      = ShootState_S,
+                ShootState_S  + Update_E[isPlaying_G]                     = X,
+
+                // else chip over the defenders.
+                SetupState_S  + Update_E                                  = ChipState_S,
+                ChipState_S  + Update_E[!isPlaying_G] / chipBall_A      = ChipState_S,
+                ChipState_S  + Update_E[isPlaying_G]                     = X,
+
                 X + Update_E                                              = X);
     }
 
 private:
     TbotsProto::AiConfig ai_config;
     std::shared_ptr<KickoffChipTactic> kickoff_chip_tactic;
+    std::shared_ptr<KickTactic> shoot_tactic;
     std::vector<std::shared_ptr<MoveTactic>> move_tactics;
     std::vector<Point> kickoff_setup_positions;
+    std::optional<Shot> shot;
 };

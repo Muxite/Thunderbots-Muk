@@ -3,6 +3,7 @@
 KickoffFriendlyPlayFSM::KickoffFriendlyPlayFSM(const TbotsProto::AiConfig &ai_config)
     : ai_config(ai_config),
         kickoff_chip_tactic(std::make_shared<KickoffChipTactic>()),
+        shoot_tactic(std::make_shared<KickTactic>()),
         move_tactics({
                            std::make_shared<PrepareKickoffMoveTactic>(), // for robot 1
                            std::make_shared<MoveTactic>(),               // for robot 2
@@ -91,10 +92,26 @@ void KickoffFriendlyPlayFSM::setupKickoff(const Update &event)
     event.common.set_tactics(tactics_to_run);
 }
 
-void KickoffFriendlyPlayFSM::kickoff(const Update &event)
+// taken from free kick fsm.
+void KickoffFriendlyPlayFSM::shootBall(const Update &event)
 {
     WorldPtr world_ptr = event.common.world_ptr;
-    createKickoffSetupPositions(world_ptr);
+    PriorityTacticVector tactics_to_run = {{}};
+
+    Point ball_pos = world_ptr->ball().position();
+
+    shoot_tactic->updateControlParams(
+            ball_pos, (shot->getPointToShootAt() - ball_pos).orientation(),
+            BALL_MAX_SPEED_METERS_PER_SECOND);
+    tactics_to_run[0].emplace_back(shoot_tactic);
+
+
+    event.common.set_tactics(tactics_to_run);
+}
+
+void KickoffFriendlyPlayFSM::chipBall(const Update &event)
+{
+    WorldPtr world_ptr = event.common.world_ptr;
 
     PriorityTacticVector tactics_to_run = {{}};
 
@@ -107,14 +124,6 @@ void KickoffFriendlyPlayFSM::kickoff(const Update &event)
 
     tactics_to_run[0].emplace_back(kickoff_chip_tactic);
 
-    // the robot at position 0 will be closest to the ball, so positions starting from
-    // 1 will be assigned to the rest of the robots
-    for (unsigned i = 1; i < kickoff_setup_positions.size(); i++)
-    {
-        move_tactics.at(i)->updateControlParams(kickoff_setup_positions.at(i),
-                                                Angle::zero());
-        tactics_to_run[0].emplace_back(move_tactics.at(i));
-    }
     event.common.set_tactics(tactics_to_run);
 }
 
@@ -123,6 +132,7 @@ bool KickoffFriendlyPlayFSM::isSetupDone(const Update &event)
     return !event.common.world_ptr->gameState().isSetupState();
 }
 
+// not used currently.
 bool KickoffFriendlyPlayFSM::canKick(const Update& event)
 {
     return event.common.world_ptr->gameState().canKick();
@@ -131,4 +141,17 @@ bool KickoffFriendlyPlayFSM::canKick(const Update& event)
 bool KickoffFriendlyPlayFSM::isPlaying(const Update& event)
 {
     return event.common.world_ptr->gameState().isPlaying();
+}
+
+// taken from freekickplayfsm
+bool KickoffFriendlyPlayFSM::shotFound(const Update &event)
+{
+    shot = calcBestShotOnGoal(event.common.world_ptr->field(),
+                              event.common.world_ptr->friendlyTeam(),
+                              event.common.world_ptr->enemyTeam(),
+                              event.common.world_ptr->ball().position(), TeamType::ENEMY);
+    return shot.has_value() &&
+           shot->getOpenAngle() >
+           Angle::fromDegrees(
+                   ai_config.attacker_tactic_config().min_open_angle_for_shot_deg());
 }
