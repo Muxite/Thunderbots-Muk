@@ -21,9 +21,10 @@ from software.gameplay_tests.validation.validation import (
 class SinglePenaltyShooter(Validation):
     """Only the kicker may remain ahead of the support line after NORMAL_START."""
 
-    def __init__(self, support_line_x, require_ready=False):
+    def __init__(self, support_line_x, require_ready=False, attacker_is_yellow=False):
         self.support_line_x = support_line_x
         self.require_ready = require_ready
+        self.attacker_is_yellow = attacker_is_yellow
         self.shooter_id = None
 
     def get_validation_status(self, world):
@@ -37,11 +38,16 @@ class SinglePenaltyShooter(Validation):
                 if self.require_ready
                 else ValidationStatus.PASSING
             )
+        # The simulated test world is seen from the blue team's side. Yellow attacks
+        # towards -x, so "ahead of the line" flips with the attacker.
+        team = world.enemy_team if self.attacker_is_yellow else world.friendly_team
+        direction = -1 if self.attacker_is_yellow else 1
         shooters = [
             robot.id
-            for robot in world.friendly_team.team_robots
+            for robot in team.team_robots
             if robot.id != 0
-            and robot.current_state.global_position.x_meters > self.support_line_x
+            and direction * robot.current_state.global_position.x_meters
+            > direction * self.support_line_x
         ]
         if len(shooters) != 1:
             return ValidationStatus.FAILING
@@ -66,34 +72,61 @@ SingleShooterEventually, _, SingleShooterAlways, _ = create_validation_types(
 )
 
 
-@pytest.mark.parametrize("layout", ["tidy", "crowded", "scattered"])
-def test_only_one_robot_takes_penalty(simulated_test_runner, layout):
+@pytest.mark.parametrize(
+    "attacker, layout",
+    [
+        ("blue", "tidy"),
+        ("blue", "crowded"),
+        ("blue", "scattered"),
+        ("yellow", "tidy"),
+        ("yellow", "scattered"),
+    ],
+)
+def test_only_one_robot_takes_penalty(simulated_test_runner, attacker, layout):
     field = tbots.Field.createSSLDivisionBField()
-    ball = field.friendlyPenaltyMark()
+    attacker_is_yellow = attacker == "yellow"
+    # Direction (in the shared simulation frame) in which the attacker shoots
+    s = -1.0 if attacker_is_yellow else 1.0
+    ball = (
+        field.enemyPenaltyMark() if attacker_is_yellow else field.friendlyPenaltyMark()
+    )
+    attacking_goalie = (
+        field.enemyGoalCenter() if attacker_is_yellow else field.friendlyGoalCenter()
+    ) + tbots.Vector(0.2 * s, 0)
+    defending_goalie = (
+        field.friendlyGoalCenter() if attacker_is_yellow else field.enemyGoalCenter()
+    )
 
     def setup(*args):
         supporters = [
-            tbots.Point(ball.x() - 1.3, y) for y in [-1.08, -0.36, 0.36, 1.08]
+            tbots.Point(ball.x() - s * 1.3, y) for y in [-1.08, -0.36, 0.36, 1.08]
         ]
         if layout == "crowded":
-            supporters[0] = ball + tbots.Vector(-0.3, 0.35)
+            supporters[0] = ball + tbots.Vector(-0.3 * s, 0.35)
         elif layout == "scattered":
             supporters = [
-                tbots.Point(-3.0, 2.5),
-                tbots.Point(0.5, -2.0),
-                tbots.Point(-3.5, -1.0),
-                tbots.Point(1.0, 1.5),
+                tbots.Point(-3.0 * s, 2.5),
+                tbots.Point(0.5 * s, -2.0),
+                tbots.Point(-3.5 * s, -1.0),
+                tbots.Point(1.0 * s, 1.5),
             ]
+        attacking_robots = [
+            attacking_goalie,
+            (
+                ball + tbots.Vector(-0.22 * s, 0)
+                if layout != "scattered"
+                else tbots.Point(-2.5 * s, 0.0)
+            ),
+            *supporters,
+        ]
         simulated_test_runner.set_world_state(
             create_world_state(
-                blue_robot_locations=[
-                    field.friendlyGoalCenter() + tbots.Vector(0.2, 0),
-                    ball + tbots.Vector(-0.22, 0)
-                    if layout != "scattered"
-                    else tbots.Point(-2.5, 0.0),
-                    *supporters,
-                ],
-                yellow_robot_locations=[field.enemyGoalCenter()],
+                blue_robot_locations=(
+                    [defending_goalie] if attacker_is_yellow else attacking_robots
+                ),
+                yellow_robot_locations=(
+                    attacking_robots if attacker_is_yellow else [defending_goalie]
+                ),
                 ball_location=ball,
                 ball_velocity=tbots.Vector(0, 0),
             )
@@ -102,18 +135,36 @@ def test_only_one_robot_takes_penalty(simulated_test_runner, layout):
             gc_command=Command.Type.STOP, team=Team.UNKNOWN
         )
         simulated_test_runner.send_gamecontroller_command(
-            gc_command=Command.Type.PENALTY, team=Team.BLUE
+            gc_command=Command.Type.PENALTY,
+            team=Team.YELLOW if attacker_is_yellow else Team.BLUE,
         )
         simulated_test_runner.set_plays(
-            blue_play=PlayName.PenaltyKickPlay, yellow_play=PlayName.HaltPlay
+            blue_play=(
+                PlayName.HaltPlay if attacker_is_yellow else PlayName.PenaltyKickPlay
+            ),
+            yellow_play=(
+                PlayName.PenaltyKickPlay if attacker_is_yellow else PlayName.HaltPlay
+            ),
         )
 
     delay_s = 9.0 if layout == "scattered" else 4.0
     simulated_test_runner.run_test(
         setup=setup,
-        inv_always_validation_sequence_set=[[SingleShooterAlways(ball.x() - 1.0)]],
+        inv_always_validation_sequence_set=[
+            [
+                SingleShooterAlways(
+                    ball.x() - s * 1.0, attacker_is_yellow=attacker_is_yellow
+                )
+            ]
+        ],
         inv_eventually_validation_sequence_set=[
-            [SingleShooterEventually(ball.x() - 1.0, require_ready=True)],
+            [
+                SingleShooterEventually(
+                    ball.x() - s * 1.0,
+                    require_ready=True,
+                    attacker_is_yellow=attacker_is_yellow,
+                )
+            ],
             [BallEventuallyExitsRegion([tbots.Circle(ball, 0.15)])],
         ],
         ci_cmd_with_delay=[(delay_s, Command.Type.NORMAL_START, Team.UNKNOWN)],
