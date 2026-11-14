@@ -245,3 +245,183 @@ TEST(PenaltyKickPlayFSMTest,
             }
         }
 }
+
+namespace
+{
+// Builds a world with the given robots (index 0 is the goalie) and the ball on the
+// friendly penalty mark
+std::shared_ptr<World> makePenaltyWorld(
+    const std::vector<std::pair<RobotId, Point>>& robot_positions,
+    const GameState& game_state, RobotId goalie_id = 0)
+{
+    auto base       = TestUtil::createBlankTestingWorld();
+    const auto ball = base->field().friendlyPenaltyMark();
+    TestUtil::setBallPosition(base, ball, Timestamp());
+    std::vector<Robot> robots;
+    for (const auto& [id, position] : robot_positions)
+    {
+        robots.emplace_back(id, position, Vector(), Angle::zero(),
+                            AngularVelocity::zero(), Timestamp());
+    }
+    Team team(Duration::fromSeconds(1));
+    team.updateRobots(robots);
+    team.assignGoalie(goalie_id);
+    auto world =
+        std::make_shared<World>(base->field(), base->ball(), team, base->enemyTeam());
+    world->updateGameState(game_state);
+    return world;
+}
+
+std::optional<RobotId> kickerId(const PenaltyKickPlay& play)
+{
+    std::optional<RobotId> kicker;
+    unsigned int count = 0;
+    for (const auto& [tactic, id] : play.getTacticRobotIdAssignment())
+    {
+        if (std::dynamic_pointer_cast<const PenaltyKickTactic>(tactic))
+        {
+            kicker = id;
+            ++count;
+        }
+    }
+    EXPECT_LE(count, 1u);
+    return kicker;
+}
+}  // namespace
+
+TEST(PenaltyKickPlayAssignmentTest, kicker_is_not_handed_over_to_a_cheaper_robot)
+{
+    GameState state;
+    state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_US);
+    const auto ball = TestUtil::createBlankTestingWorld()->field().friendlyPenaltyMark();
+    auto positions =
+        std::vector<std::pair<RobotId, Point>>{{0, Point(-4, 0)},
+                                               {1, ball + Vector(-0.21, 0)},
+                                               {2, ball + Vector(-1.3, 0.4)},
+                                               {3, ball + Vector(-1.3, -0.4)}};
+    PenaltyKickPlay play(std::make_shared<TbotsProto::AiConfig>());
+    auto tick = [&]()
+    {
+        auto world = makePenaltyWorld(positions, state);
+        play.get(world, InterPlayCommunication{}, [](InterPlayCommunication) {});
+    };
+    tick();
+    state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+    tick();
+    ASSERT_EQ(kickerId(play), std::optional<RobotId>(1));
+
+    // The kicker falls behind while another robot gets close to the ball: the kick
+    // must not be handed over
+    positions[1].second = ball + Vector(-2.0, 0.0);
+    positions[2].second = ball + Vector(-0.3, 0.0);
+    for (int i = 0; i < 5; ++i)
+    {
+        tick();
+        EXPECT_EQ(kickerId(play), std::optional<RobotId>(1));
+    }
+}
+
+TEST(PenaltyKickPlayAssignmentTest, kick_is_reassigned_once_if_the_kicker_disappears)
+{
+    GameState state;
+    state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_US);
+    const auto ball = TestUtil::createBlankTestingWorld()->field().friendlyPenaltyMark();
+    auto positions =
+        std::vector<std::pair<RobotId, Point>>{{0, Point(-4, 0)},
+                                               {1, ball + Vector(-0.21, 0)},
+                                               {2, ball + Vector(-1.3, 0.4)},
+                                               {3, ball + Vector(-1.3, -0.4)}};
+    PenaltyKickPlay play(std::make_shared<TbotsProto::AiConfig>());
+    auto tick = [&]()
+    {
+        auto world = makePenaltyWorld(positions, state);
+        return play.get(world, InterPlayCommunication{}, [](InterPlayCommunication) {});
+    };
+    tick();
+    state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+    tick();
+    ASSERT_EQ(kickerId(play), std::optional<RobotId>(1));
+
+    // The kicker is removed from the field mid-kick
+    positions.erase(positions.begin() + 1);
+    auto primitives = tick();
+    auto new_kicker = kickerId(play);
+    ASSERT_TRUE(new_kicker.has_value());
+    EXPECT_NE(new_kicker.value(), 0u);  // never the goalie
+    EXPECT_NE(new_kicker.value(), 1u);
+    for (int i = 0; i < 5; ++i)
+    {
+        primitives = tick();
+        EXPECT_EQ(kickerId(play), new_kicker);
+    }
+    // Everyone but the goalie keeps moving rather than stopping
+    for (RobotId id : {2, 3})
+    {
+        ASSERT_TRUE(primitives->robot_primitives().contains(id));
+        EXPECT_FALSE(primitives->robot_primitives().at(id).has_stop());
+    }
+}
+
+TEST(PenaltyKickPlayAssignmentTest, goalie_next_to_the_ball_never_takes_the_kick)
+{
+    GameState state;
+    state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_US);
+    const auto ball = TestUtil::createBlankTestingWorld()->field().friendlyPenaltyMark();
+    const std::vector<std::pair<RobotId, Point>> positions = {
+        {0, ball + Vector(-0.2, 0)},
+        {1, ball + Vector(-1.3, 0.4)},
+        {2, ball + Vector(-1.3, -0.4)}};
+    PenaltyKickPlay play(std::make_shared<TbotsProto::AiConfig>());
+    for (int i = 0; i < 4; ++i)
+    {
+        if (i == 2)
+        {
+            state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+        }
+        auto world = makePenaltyWorld(positions, state);
+        play.get(world, InterPlayCommunication{}, [](InterPlayCommunication) {});
+        for (const auto& [tactic, id] : play.getTacticRobotIdAssignment())
+        {
+            if (std::dynamic_pointer_cast<const PenaltyKickTactic>(tactic))
+            {
+                EXPECT_NE(id, 0u);
+            }
+        }
+    }
+}
+
+TEST(PenaltyKickPlayFSMTest, referee_sequence_finishes_the_play_on_stop)
+{
+    for (auto end_command : {RefereeCommand::STOP, RefereeCommand::HALT})
+    {
+        auto world = TestUtil::createBlankTestingWorld();
+        GameState state;
+        state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_US);
+        world->updateGameState(state);
+        FSM<PenaltyKickPlayFSM> fsm(
+            PenaltyKickPlayFSM{std::make_shared<TbotsProto::AiConfig>()});
+        auto update = [&]()
+        {
+            fsm.process_event(PenaltyKickPlayFSM::Update(
+                {}, PlayUpdate(
+                        world, 5, [](PriorityTacticVector) {}, InterPlayCommunication{},
+                        [](InterPlayCommunication) {})));
+        };
+        update();
+        EXPECT_TRUE(fsm.is(boost::sml::state<PenaltyKickPlayFSM::SetupPositionState>));
+        state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+        world->updateGameState(state);
+        update();
+        EXPECT_TRUE(fsm.is(boost::sml::state<PenaltyKickPlayFSM::PerformKickState>));
+        state.updateRefereeCommand(end_command);
+        world->updateGameState(state);
+        update();
+        // HALT replaces the play through play selection, so only STOP ends this FSM
+        if (end_command == RefereeCommand::STOP)
+        {
+            EXPECT_TRUE(fsm.is(boost::sml::X));
+            update();
+            EXPECT_TRUE(fsm.is(boost::sml::X));
+        }
+    }
+}

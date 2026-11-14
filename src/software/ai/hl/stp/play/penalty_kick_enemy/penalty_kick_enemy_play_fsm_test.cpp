@@ -53,3 +53,43 @@ TEST(PenaltyKickEnemyPlayFSMTest, test_transitions)
 
     EXPECT_TRUE(fsm.is(boost::sml::state<PenaltyKickEnemyPlayFSM::DefendKickState>));
 }
+
+TEST(PenaltyKickEnemyPlayFSMTest, other_robots_keep_their_positions_during_the_kick)
+{
+    std::shared_ptr<World> world = ::TestUtil::createBlankTestingWorld();
+    GameState game_state;
+    game_state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_THEM);
+    world->updateGameState(game_state);
+    std::shared_ptr<GoalieTactic> goalie_tactic =
+        std::make_shared<GoalieTactic>(std::make_shared<TbotsProto::AiConfig>());
+    FSM<PenaltyKickEnemyPlayFSM> fsm(
+        PenaltyKickEnemyPlayFSM{std::make_shared<TbotsProto::AiConfig>()});
+
+    size_t published = 0;
+    auto update      = [&]()
+    {
+        fsm.process_event(PenaltyKickEnemyPlayFSM::Update(
+            PenaltyKickEnemyPlayFSM::ControlParams{goalie_tactic},
+            PlayUpdate(
+                world, 5,
+                [&](PriorityTacticVector tactics)
+                {
+                    published = 0;
+                    for (const auto& priority : tactics)
+                    {
+                        published += priority.size();
+                    }
+                },
+                InterPlayCommunication{}, [](InterPlayCommunication comm) {})));
+    };
+    update();
+    game_state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+    world->updateGameState(game_state);
+    published = 0;
+    update();
+    EXPECT_TRUE(fsm.is(boost::sml::state<PenaltyKickEnemyPlayFSM::DefendKickState>));
+    EXPECT_EQ(published, 5u);
+    published = 0;
+    update();
+    EXPECT_EQ(published, 5u);
+}

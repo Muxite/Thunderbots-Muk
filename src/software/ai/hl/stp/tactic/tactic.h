@@ -68,10 +68,15 @@ class Tactic
      *
      * @return true if assignment should prefer the last execution robot
      */
-    virtual bool hasStickyAssignment() const
-    {
-        return false;
-    }
+    virtual bool hasStickyAssignment() const = 0;
+
+    /**
+     * Sets whether robot-to-tactic assignment should stick with the last execution
+     * robot (see hasStickyAssignment)
+     *
+     * @param sticky_assignment true to prefer the last execution robot
+     */
+    virtual void setStickyAssignment(bool sticky_assignment) = 0;
 
     /**
      * Updates and returns a set of primitives for all friendly robots from this tactic

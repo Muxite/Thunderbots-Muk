@@ -58,8 +58,8 @@ SingleShooterEventually, _, SingleShooterAlways, _ = create_validation_types(
 )
 
 
-@pytest.mark.parametrize("crowded_setup", [False, True])
-def test_only_one_robot_takes_penalty(simulated_test_runner, crowded_setup):
+@pytest.mark.parametrize("layout", ["tidy", "crowded", "scattered"])
+def test_only_one_robot_takes_penalty(simulated_test_runner, layout):
     field = tbots.Field.createSSLDivisionBField()
     ball = field.friendlyPenaltyMark()
 
@@ -67,13 +67,22 @@ def test_only_one_robot_takes_penalty(simulated_test_runner, crowded_setup):
         supporters = [
             tbots.Point(ball.x() - 1.3, y) for y in [-1.08, -0.36, 0.36, 1.08]
         ]
-        if crowded_setup:
+        if layout == "crowded":
             supporters[0] = ball + tbots.Vector(-0.3, 0.35)
+        elif layout == "scattered":
+            supporters = [
+                tbots.Point(-3.0, 2.5),
+                tbots.Point(0.5, -2.0),
+                tbots.Point(-3.5, -1.0),
+                tbots.Point(1.0, 1.5),
+            ]
         simulated_test_runner.set_world_state(
             create_world_state(
                 blue_robot_locations=[
                     field.friendlyGoalCenter() + tbots.Vector(0.2, 0),
-                    ball + tbots.Vector(-0.22, 0),
+                    ball + tbots.Vector(-0.22, 0)
+                    if layout != "scattered"
+                    else tbots.Point(-2.5, 0.0),
                     *supporters,
                 ],
                 yellow_robot_locations=[field.enemyGoalCenter()],
@@ -91,6 +100,7 @@ def test_only_one_robot_takes_penalty(simulated_test_runner, crowded_setup):
             blue_play=PlayName.PenaltyKickPlay, yellow_play=PlayName.HaltPlay
         )
 
+    delay_s = 9.0 if layout == "scattered" else 4.0
     simulated_test_runner.run_test(
         setup=setup,
         inv_always_validation_sequence_set=[[SingleShooterAlways(ball.x() - 1.0)]],
@@ -98,8 +108,8 @@ def test_only_one_robot_takes_penalty(simulated_test_runner, crowded_setup):
             [SingleShooterEventually(ball.x() - 1.0, require_ready=True)],
             [BallEventuallyExitsRegion([tbots.Circle(ball, 0.15)])],
         ],
-        ci_cmd_with_delay=[(4.0, Command.Type.NORMAL_START, Team.UNKNOWN)],
-        test_timeout_s=12,
+        ci_cmd_with_delay=[(delay_s, Command.Type.NORMAL_START, Team.UNKNOWN)],
+        test_timeout_s=delay_s + 8,
     )
 
 

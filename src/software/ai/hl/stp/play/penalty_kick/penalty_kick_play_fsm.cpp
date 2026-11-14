@@ -7,6 +7,7 @@ PenaltyKickPlayFSM::PenaltyKickPlayFSM(
       shooter_setup_tactic(std::make_shared<PenaltySetupTactic>(ai_config_ptr)),
       penalty_setup_tactics(std::vector<std::shared_ptr<PenaltySetupTactic>>())
 {
+    shooter_setup_tactic->setStickyAssignment(true);
     // Choose a setup shooter that can also dribble and kick after NORMAL_START.
     shooter_setup_tactic->mutableRobotCapabilityRequirements() =
         penalty_kick_tactic->robotCapabilityRequirements();
