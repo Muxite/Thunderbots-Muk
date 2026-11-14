@@ -24,6 +24,7 @@ class SinglePenaltyShooter(Validation):
     def __init__(self, support_line_x, require_ready=False):
         self.support_line_x = support_line_x
         self.require_ready = require_ready
+        self.shooter_id = None
 
     def get_validation_status(self, world):
         ready = (
@@ -42,8 +43,15 @@ class SinglePenaltyShooter(Validation):
             if robot.id != 0
             and robot.current_state.global_position.x_meters > self.support_line_x
         ]
+        if len(shooters) != 1:
+            return ValidationStatus.FAILING
+        # The kick must not be handed over between robots
+        if self.shooter_id is None:
+            self.shooter_id = shooters[0]
         return (
-            ValidationStatus.PASSING if len(shooters) == 1 else ValidationStatus.FAILING
+            ValidationStatus.PASSING
+            if shooters[0] == self.shooter_id
+            else ValidationStatus.FAILING
         )
 
     def get_validation_geometry(self, world):
