@@ -87,6 +87,13 @@ class TacticBase : public Tactic
     void setLastExecutionRobot(std::optional<RobotId> last_execution_robot);
 
     /**
+     * Gets the robot that last executed the primitive for this tactic
+     *
+     * @return the id of the last execution robot, if any
+     */
+    std::optional<RobotId> getLastExecutionRobot() const;
+
+    /**
      * Updates and returns a set of primitives for all friendly robots from this tactic
      *
      * @param world The updated world
@@ -231,6 +238,13 @@ void TacticBase<TacticFsm, TacticSubFsms...>::setLastExecutionRobot(
     std::optional<RobotId> last_execution_robot)
 {
     this->last_execution_robot = last_execution_robot;
+}
+
+template <class TacticFsm, class... TacticSubFsms>
+std::optional<RobotId> TacticBase<TacticFsm, TacticSubFsms...>::getLastExecutionRobot()
+    const
+{
+    return last_execution_robot;
 }
 
 template <class TacticFsm, class... TacticSubFsms>

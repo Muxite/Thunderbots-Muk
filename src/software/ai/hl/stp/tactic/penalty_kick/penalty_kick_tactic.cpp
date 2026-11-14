@@ -10,6 +10,11 @@ PenaltyKickTactic::PenaltyKickTactic(
 
 void PenaltyKickTactic::updateControlParams() {}
 
+bool PenaltyKickTactic::hasStickyAssignment() const
+{
+    return true;
+}
+
 void PenaltyKickTactic::accept(TacticVisitor& visitor) const
 {
     visitor.visit(*this);

@@ -27,4 +27,13 @@ class PenaltyKickTactic
     void updateControlParams();
 
     void accept(TacticVisitor& visitor) const override;
+
+    /**
+     * The kick must not be handed over between robots mid-execution: every robot that
+     * is not the current kicker has its FSM reset each tick, so its estimated cost
+     * (reaching the ball) would always undercut the kicker's (dribbling to the shot).
+     *
+     * @return true
+     */
+    bool hasStickyAssignment() const override;
 };

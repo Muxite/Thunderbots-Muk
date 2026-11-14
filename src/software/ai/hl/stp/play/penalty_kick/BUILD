@@ -1,3 +1,5 @@
+load("@gameplay_tests_deps//:requirements.bzl", "requirement")
+
 package(default_visibility = ["//visibility:public"])
 
 # We force linking for all plays so that the static variables required for the
@@ -34,5 +36,15 @@ cc_test(
         ":penalty_kick_play",
         "//shared/test_util:tbots_gtest_main",
         "//software/test_util",
+    ],
+)
+
+py_test(
+    name = "penalty_kick_play_test",
+    srcs = ["penalty_kick_play_test.py"],
+    deps = [
+        "//software:conftest",
+        "//software/gameplay_tests/validation:validations",
+        requirement("pytest"),
     ],
 )

@@ -232,7 +232,17 @@ Play::assignTactics(const WorldPtr& world_ptr, TacticVector tactic_vector,
                 robot_capabilities.begin(), robot_capabilities.end(),
                 std::inserter(missing_capabilities, missing_capabilities.begin()));
 
-            if (missing_capabilities.size() > 0)
+            if (tactic->hasStickyAssignment() &&
+                tactic->getLastExecutionRobot() == std::optional<RobotId>(robot.id()) &&
+                missing_capabilities.empty())
+            {
+                // Keep the robot that is already executing this tactic. Robots that
+                // are not executing it have their tactic FSMs reset every tick, so
+                // their estimated cost is not comparable to the incumbent's and
+                // would otherwise cause the tactic to flip between robots.
+                matrix(row, col) = 0.0;
+            }
+            else if (missing_capabilities.size() > 0)
             {
                 // We arbitrarily increase the cost, so that robots with missing
                 // capabilities are not assigned

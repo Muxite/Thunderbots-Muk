@@ -79,12 +79,21 @@ struct PenaltyKickPlayFSM : PlayFSM<PenaltyKickPlayFSM>
             // src_state + event [guard] / action = dest_state
             *SetupPositionState_S + Update_E[!setupPositionDone_G] / setupPosition_A =
                 SetupPositionState_S,
-            SetupPositionState_S + Update_E[setupPositionDone_G] = PerformKickState_S,
+            SetupPositionState_S + Update_E[setupPositionDone_G] / performKick_A =
+                PerformKickState_S,
             PerformKickState_S + Update_E[!kickDone_G] / performKick_A,
             PerformKickState_S + Update_E[kickDone_G] = X, X + Update_E = X);
     }
 
    private:
+    // Refresh the non-shooting formation in both setup and kick phases.
+    void updateSupportPositions(const Update& event);
+
+    // Whether the kick phase has started, i.e. the kicker has been handed over from the
+    // setup shooter
+    bool kick_started = false;
+
     std::shared_ptr<PenaltyKickTactic> penalty_kick_tactic;
+    std::shared_ptr<PenaltySetupTactic> shooter_setup_tactic;
     std::vector<std::shared_ptr<PenaltySetupTactic>> penalty_setup_tactics;
 };
