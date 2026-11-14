@@ -48,3 +48,15 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+# Experiment harness measuring the simulated penalty goal rate; not a regression test.
+py_test(
+    name = "penalty_kick_goal_rate_test",
+    srcs = ["penalty_kick_goal_rate_test.py"],
+    tags = ["manual"],
+    deps = [
+        "//software:conftest",
+        "//software/gameplay_tests/validation:validations",
+        requirement("pytest"),
+    ],
+)
