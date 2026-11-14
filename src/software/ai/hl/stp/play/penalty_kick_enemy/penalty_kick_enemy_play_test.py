@@ -155,14 +155,16 @@ def test_penalty_kick_enemy_play_setup(
 
     eventually_validation_sequence_set = [
         [
-            # Goalie robot at friendly goal center facing forward
+            # Goalie robot on the goal line facing forward. The robot cannot reach the
+            # exact goal center because the goal frame (depth + robot radius) blocks it
             RobotEventuallyAtOrientation(
                 robot_id=0,
                 orientation=tbots_cpp.Angle.zero(),
             ),
             RobotEventuallyAtPosition(
                 robot_id=0,
-                position=field.friendlyGoalCenter(),
+                position=field.friendlyGoalCenter() + tbots_cpp.Vector(0.3, 0),
+                threshold=0.1,
             ),
             # 5 other robots in the behind_ball_region
             NumberOfRobotsEventuallyEntersRegion(
