@@ -37,7 +37,8 @@ void KickFSM::updateGetBehindBall(
 bool KickFSM::ballChicked(const Update& event)
 {
     return event.common.world_ptr->ball().hasBallBeenKicked(
-        event.control_params.kick_direction);
+        event.control_params.kick_direction,
+        event.control_params.min_kicked_ball_speed_meters_per_second);
 }
 
 bool KickFSM::shouldRealignWithBall(const Update& event)

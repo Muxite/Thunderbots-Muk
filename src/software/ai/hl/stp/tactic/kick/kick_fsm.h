@@ -19,6 +19,10 @@ struct KickFSM : TacticFSM<KickFSM>
         Angle kick_direction;
         // How fast the Robot will kick the ball in meters per second
         double kick_speed_meters_per_second;
+        // The minimum speed the ball must reach in the kick direction for the kick to
+        // be considered done. The default is low enough to be satisfied by a ball that
+        // is merely being pushed along, so tactics where that matters should raise it.
+        double min_kicked_ball_speed_meters_per_second = 0.5;
     };
 
     using Update = TacticFSM<KickFSM>::Update;

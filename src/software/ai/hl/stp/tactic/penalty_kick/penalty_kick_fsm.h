@@ -128,6 +128,8 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
    private:
     static constexpr double PENALTY_KICK_POST_OFFSET = 0.03;
     static constexpr double PENALTY_KICK_SHOT_SPEED  = 5.0;
+    // the ball must at least reach this speed for the kick to be considered taken
+    static constexpr double PENALTY_KICK_MIN_KICKED_BALL_SPEED = 3.0;
 
     // expected maximum acceleration of the opposition goalie robot
     static constexpr double PENALTY_KICK_GOALIE_MAX_ACC = 1.5;

@@ -127,7 +127,9 @@ void PenaltyKickFSM::shoot(const Update& event,
     KickFSM::ControlParams control_params{
         .kick_origin                  = event.common.world_ptr->ball().position(),
         .kick_direction               = shot_angle,
-        .kick_speed_meters_per_second = PENALTY_KICK_SHOT_SPEED};
+        .kick_speed_meters_per_second = PENALTY_KICK_SHOT_SPEED,
+        // A ball that was only pushed along while dribbling must not count as kicked
+        .min_kicked_ball_speed_meters_per_second = PENALTY_KICK_MIN_KICKED_BALL_SPEED};
     processEvent(KickFSM::Update(control_params, event.common));
 }
 
