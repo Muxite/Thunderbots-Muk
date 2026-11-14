@@ -109,24 +109,17 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
 
         DEFINE_SML_EVENT(Update)
 
-        DEFINE_SML_GUARD(takePenaltyShot)
-        DEFINE_SML_GUARD(timeOutApproach)
-
         DEFINE_SML_SUB_FSM_UPDATE_ACTION(shoot, KickFSM)
-        DEFINE_SML_SUB_FSM_UPDATE_ACTION(updateApproachKeeper, DribbleFSM)
-        DEFINE_SML_SUB_FSM_UPDATE_ACTION(adjustOrientationForShot, DribbleFSM)
 
         return make_transition_table(
             // src_state + event [guard] / action = dest state
-            *DribbleFSM_S + Update_E[!takePenaltyShot_G] / updateApproachKeeper_A,
-            DribbleFSM_S + Update_E[timeOutApproach_G] / shoot_A = KickFSM_S,
-            DribbleFSM_S + Update_E / adjustOrientationForShot_A,
-            DribbleFSM_S = KickFSM_S, KickFSM_S + Update_E / shoot_A, KickFSM_S = X,
+            *DribbleFSM_S + Update_E / shoot_A = KickFSM_S,
+            KickFSM_S + Update_E / shoot_A, KickFSM_S = X,
             X + Update_E / SET_STOP_PRIMITIVE_ACTION = X);
     };
 
    private:
-    static constexpr double PENALTY_KICK_POST_OFFSET = 0.03;
+    static constexpr double PENALTY_KICK_POST_OFFSET = 0.12;
     static constexpr double PENALTY_KICK_SHOT_SPEED  = 5.0;
     // the ball must at least reach this speed for the kick to be considered taken
     static constexpr double PENALTY_KICK_MIN_KICKED_BALL_SPEED = 3.0;
@@ -149,4 +142,5 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
 
     std::optional<Timestamp> complete_approach;
     Angle shot_angle;
+    bool shot_angle_chosen = false;
 };

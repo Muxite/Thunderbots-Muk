@@ -124,6 +124,17 @@ const Point PenaltyKickFSM::evaluateNextShotPosition(std::optional<Robot> enemy_
 void PenaltyKickFSM::shoot(const Update& event,
                            boost::sml::back::process<KickFSM::Update> processEvent)
 {
+    if (!shot_angle_chosen)
+    {
+        // Commit to a corner away from the goalie so the kicker does not keep
+        // re-aligning as the goalie moves
+        const Point next_shot_position =
+            evaluateNextShotPosition(event.common.world_ptr->enemyTeam().goalie(),
+                                     event.common.world_ptr->field());
+        shot_angle = (next_shot_position - event.common.world_ptr->ball().position())
+                         .orientation();
+        shot_angle_chosen = true;
+    }
     KickFSM::ControlParams control_params{
         .kick_origin                  = event.common.world_ptr->ball().position(),
         .kick_direction               = shot_angle,
