@@ -49,32 +49,29 @@ class GLPassingLayer(GLLayer):
         else:
             # We received new pass data, so lets update our timeout
             self.timeout = time.time() + GLPassingLayer.PASS_VISUALIZATION_TIMEOUT_S
-            if pass_vis.pass_committed != self.cached_pass_vis.pass_committed:
-                self.pass_graphics.clear()
-
             self.cached_pass_vis = pass_vis
 
-        # Ensure we have the same number of graphics as protos
+        # One line per candidate pass. Committed passes are drawn by the attacker layer,
+        # which is where the commitment flag lives, so these are all uncommitted.
+        best_passes = list(pass_vis.best_passes)
         self.pass_graphics.resize(
-            1,
+            len(best_passes),
             lambda: GLPolygon(
-                outline_color=(
-                    Colors.COMMITTED_PASS_VISUALIZATION_COLOR
-                    if pass_vis.pass_committed
-                    else Colors.UNCOMMITTED_PASS_VISUALIZATION_COLOR
-                )
+                outline_color=Colors.UNCOMMITTED_PASS_VISUALIZATION_COLOR
             ),
         )
 
-        self.pass_graphics[0].set_points(
-            [
+        for graphic, pass_with_rating in zip(self.pass_graphics, best_passes):
+            pass_proto = pass_with_rating.pass_
+            graphic.set_points(
                 [
-                    pass_vis.best_pass.passer_point.x_meters,
-                    pass_vis.best_pass.passer_point.y_meters,
-                ],
-                [
-                    pass_vis.best_pass.receiver_point.x_meters,
-                    pass_vis.best_pass.receiver_point.y_meters,
-                ],
-            ]
-        )
+                    [
+                        pass_proto.passer_point.x_meters,
+                        pass_proto.passer_point.y_meters,
+                    ],
+                    [
+                        pass_proto.receiver_point.x_meters,
+                        pass_proto.receiver_point.y_meters,
+                    ],
+                ]
+            )

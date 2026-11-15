@@ -1,4 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@gameplay_tests_deps//:requirements.bzl", requirement_test = "requirement")
 load("@thunderscope_deps//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
@@ -56,8 +57,24 @@ py_library(
     srcs = ["gl_passing_layer.py"],
     deps = [
         ":gl_layer",
+        "//proto:import_all_protos",
+        "//software/thunderscope:constants",
+        "//software/thunderscope:thread_safe_buffer",
         "//software/thunderscope/gl/graphics:gl_polygon",
+        "//software/thunderscope/gl/helpers:observable_list",
         requirement("pyqtgraph"),
+    ],
+)
+
+py_test(
+    name = "gl_passing_layer_test",
+    srcs = ["gl_passing_layer_test.py"],
+    data = ["//software:py_constants.so"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":gl_passing_layer",
+        "//proto:import_all_protos",
+        requirement_test("pytest"),
     ],
 )
 

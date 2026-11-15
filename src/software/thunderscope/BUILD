@@ -174,6 +174,7 @@ py_library(
 py_library(
     name = "thread_safe_buffer",
     srcs = ["thread_safe_buffer.py"],
+    deps = ["//software/logger:py_logger"],
 )
 
 py_library(
