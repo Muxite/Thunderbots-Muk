@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "software/ai/stp/tactic/dribble/dribble_fsm.h"
 #include "software/ai/stp/tactic/get_behind_ball/get_behind_ball_fsm.h"
 #include "software/ai/stp/tactic/kick_or_chip/kick_or_chip_fsm.h"
@@ -94,6 +96,8 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
     // which we decide to potentially shoot
     static constexpr double PENALTY_KICK_MIN_SHOT_X_DISTANCE_FACTOR = 1.0 / 3.0;
 
-    Angle shot_angle;
-    bool shot_angle_chosen = false;
+    // The point on the goal line chosen to shoot at. It is picked once, so the aim does
+    // not follow the goalie, and the angle is re-derived from it each tick, so a ball
+    // that gets nudged before the kick still goes at the same corner.
+    std::optional<Point> shot_target;
 };

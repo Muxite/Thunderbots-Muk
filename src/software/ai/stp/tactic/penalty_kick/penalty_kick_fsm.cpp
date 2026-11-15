@@ -1,7 +1,7 @@
 #include "software/ai/stp/tactic/penalty_kick/penalty_kick_fsm.h"
 
 PenaltyKickFSM::PenaltyKickFSM(std::shared_ptr<const TbotsProto::AiConfig> ai_config_ptr)
-    : TacticFSM<PenaltyKickFSM>(ai_config_ptr), shot_angle()
+    : TacticFSM<PenaltyKickFSM>(ai_config_ptr)
 {
 }
 
@@ -122,21 +122,20 @@ const Point PenaltyKickFSM::evaluateNextShotPosition(std::optional<Robot> enemy_
 void PenaltyKickFSM::shoot(const Update& event,
                            boost::sml::back::process<KickOrChipFSM::Update> processEvent)
 {
-    if (!shot_angle_chosen)
+    if (!shot_target.has_value())
     {
         // Commit to a corner away from the goalie so the kicker does not keep
         // re-aligning as the goalie moves
-        const Point next_shot_position =
+        shot_target =
             evaluateNextShotPosition(event.common.world_ptr->enemyTeam().goalie(),
                                      event.common.world_ptr->field());
-        shot_angle = (next_shot_position - event.common.world_ptr->ball().position())
-                         .orientation();
-        shot_angle_chosen = true;
     }
+    const Point ball_position = event.common.world_ptr->ball().position();
+    const Angle shot_angle    = (shot_target.value() - ball_position).orientation();
     KickOrChipFSM::ControlParams control_params{
-        .kick_or_chip_origin    = event.common.world_ptr->ball().position(),
+        .kick_or_chip_origin    = ball_position,
         .kick_or_chip_direction = shot_angle,
-        .auto_chip_or_kick = {AutoChipOrKickMode::AUTOKICK, PENALTY_KICK_SHOT_SPEED},
+        .auto_chip_or_kick      = {AutoChipOrKickMode::AUTOKICK, PENALTY_KICK_SHOT_SPEED},
         // A ball that was only pushed along while dribbling must not count as kicked
         .min_kicked_ball_speed_meters_per_second = PENALTY_KICK_MIN_KICKED_BALL_SPEED};
     processEvent(KickOrChipFSM::Update(control_params, event.common));

@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "software/ai/stp/tactic/move_primitive.h"
 #include "software/test_util/test_util.h"
 
 TEST(PenaltyKickFSM, test_transitions)
@@ -60,11 +61,10 @@ TEST(PenaltyKickFSM, shot_direction_is_committed_when_goalie_moves)
         world->updateEnemyTeamState(enemy);
     };
     set_goalie(0.2);
-    const Angle direction =
-        (PenaltyKickFSM::evaluateNextShotPosition(world->enemyTeam().goalie(),
-                                                world->field()) -
-         ball)
-            .orientation();
+    const Angle direction = (PenaltyKickFSM::evaluateNextShotPosition(
+                                 world->enemyTeam().goalie(), world->field()) -
+                             ball)
+                                .orientation();
     Robot robot(0, ball - Vector::createFromAngle(direction).normalize(0.2), Vector(),
                 direction, AngularVelocity::zero(), Timestamp());
     auto config = std::make_shared<TbotsProto::AiConfig>();
@@ -82,9 +82,57 @@ TEST(PenaltyKickFSM, shot_direction_is_committed_when_goalie_moves)
 
     set_goalie(-0.2);
     ::TestUtil::setBallVelocity(world, Vector::createFromAngle(direction).normalize(5),
-                               Timestamp::fromSeconds(1));
+                                Timestamp::fromSeconds(1));
     update();
     EXPECT_TRUE(fsm.is(boost::sml::X));
+}
+
+TEST(PenaltyKickFSM, shot_aims_at_committed_target_when_ball_is_nudged)
+{
+    auto world      = ::TestUtil::createBlankTestingWorld();
+    const auto ball = world->field().friendlyPenaltyMark();
+    ::TestUtil::setBallPosition(world, ball, Timestamp());
+    Team enemy({Robot(0, Point(world->field().enemyGoalCenter().x(), 0.2), Vector(),
+                      Angle::half(), AngularVelocity::zero(), Timestamp())});
+    enemy.assignGoalie(0);
+    world->updateEnemyTeamState(enemy);
+
+    const Point target = PenaltyKickFSM::evaluateNextShotPosition(
+        world->enemyTeam().goalie(), world->field());
+    const Angle direction = (target - ball).orientation();
+    Robot robot(0, ball - Vector::createFromAngle(direction).normalize(0.2), Vector(),
+                direction, AngularVelocity::zero(), Timestamp());
+    auto config = std::make_shared<TbotsProto::AiConfig>();
+    FSM<PenaltyKickFSM> fsm{PenaltyKickFSM(config), DribbleFSM(config),
+                            KickOrChipFSM(config), GetBehindBallFSM(config)};
+    std::shared_ptr<Primitive> last_primitive;
+    auto update = [&]()
+    {
+        fsm.process_event(PenaltyKickFSM::Update(
+            {}, TacticUpdate(robot, world,
+                             [&](std::shared_ptr<Primitive> p) { last_primitive = p; })));
+    };
+    auto commanded_angle = [&]()
+    {
+        RobotNavigationObstacleFactory obstacle_factory{
+            TbotsProto::RobotNavigationObstacleConfig()};
+        auto [trajectory, msg] = last_primitive->generatePrimitiveProtoMessage(
+            *world, {}, {}, obstacle_factory);
+        return Angle::fromRadians(msg->move().w_traj_params().final_angle().radians());
+    };
+    update();
+    update();
+    ASSERT_TRUE(fsm.is<decltype(boost::sml::state<KickOrChipFSM>)>(
+        boost::sml::state<KickOrChipFSM::KickOrChipState>));
+
+    // Nudge the ball sideways before it is kicked. The shot must still aim at the
+    // corner picked earlier, measured from where the ball is now.
+    const Point nudged_ball = ball + Vector(0, 0.15);
+    ::TestUtil::setBallPosition(world, nudged_ball, Timestamp::fromSeconds(1));
+    update();
+    ASSERT_NE(last_primitive, nullptr);
+    const Angle expected = (target - nudged_ball).orientation();
+    EXPECT_NEAR(commanded_angle().minDiff(expected).toRadians(), 0.0, 1e-3);
 }
 
 TEST(PenaltyKickFSMTest, no_enemy_goalie)

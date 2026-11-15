@@ -34,6 +34,7 @@ cc_test(
     deps = [
         ":penalty_kick_tactic",
         "//shared/test_util:tbots_gtest_main",
+        "//software/ai/stp/tactic:move_primitive",
         "//software/test_util",
     ],
 )
