@@ -17,14 +17,27 @@ void PenaltyKickPlayFSM::performKick(const Update& event)
 {
     updateSupportPositions(event);
     PriorityTacticVector tactics_to_run = {{}, {}};
+    const Point ball_position           = event.common.world_ptr->ball().position();
     if (!kick_started)
     {
         // The robot parked behind the ball during setup takes the kick
         penalty_kick_tactic->setLastExecutionRobot(
             shooter_setup_tactic->getLastExecutionRobot());
-        kick_started = true;
+        kick_started             = true;
+        shot_taken               = false;
+        kick_start_ball_position = ball_position;
     }
-    if (event.common.num_tactics > 0)
+    // A ball that is only being dribbled forward moves slowly, so it takes both distance
+    // and speed to tell a shot from a dribble
+    if (!shot_taken &&
+        (penalty_kick_tactic->done() ||
+         ((ball_position - kick_start_ball_position).length() >
+              SHOT_TAKEN_DISTANCE_METERS &&
+          event.common.world_ptr->ball().velocity().length() > SHOT_TAKEN_MIN_SPEED)))
+    {
+        shot_taken = true;
+    }
+    if (event.common.num_tactics > 0 && !shot_taken)
     {
         tactics_to_run[0].emplace_back(penalty_kick_tactic);
     }

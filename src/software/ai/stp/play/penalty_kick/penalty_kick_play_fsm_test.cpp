@@ -95,6 +95,80 @@ TEST(PenaltyKickPlayFSMTest, normal_start_immediately_publishes_one_kicker_and_s
     }
 }
 
+TEST(PenaltyKickPlayFSMTest, no_kicker_is_published_once_the_ball_has_been_shot)
+{
+    auto world      = TestUtil::createBlankTestingWorld();
+    const auto mark = world->field().friendlyPenaltyMark();
+    TestUtil::setBallPosition(world, mark, Timestamp());
+    GameState state;
+    state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_US);
+    world->updateGameState(state);
+    FSM<PenaltyKickPlayFSM> fsm(
+        PenaltyKickPlayFSM{std::make_shared<TbotsProto::AiConfig>()});
+    PriorityTacticVector published;
+    PenaltyKickPlayFSM::Update event(
+        {}, PlayUpdate(
+                world, 5, [&](PriorityTacticVector tactics) { published = tactics; },
+                InterPlayCommunication{}, [](InterPlayCommunication) {}));
+    auto count_kickers = [&]()
+    {
+        size_t kickers = 0;
+        for (const auto& priority : published)
+            for (const auto& tactic : priority)
+                if (std::dynamic_pointer_cast<PenaltyKickTactic>(tactic))
+                    ++kickers;
+        return kickers;
+    };
+    fsm.process_event(event);
+    state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+    world->updateGameState(state);
+    fsm.process_event(event);
+    fsm.process_event(event);
+    ASSERT_EQ(count_kickers(), 1);
+
+    // The ball leaves the mark. Whoever the kicker is, nobody may be handed the kick
+    // again, even if the kicker is lost or replaced after this point.
+    TestUtil::setBallPosition(world, mark + Vector(2, 0), Timestamp::fromSeconds(1));
+    TestUtil::setBallVelocity(world, Vector(5, 0), Timestamp::fromSeconds(1));
+    fsm.process_event(event);
+    EXPECT_EQ(count_kickers(), 0);
+    fsm.process_event(event);
+    EXPECT_EQ(count_kickers(), 0);
+}
+
+TEST(PenaltyKickPlayFSMTest, kicker_keeps_the_kick_while_only_dribbling_the_ball)
+{
+    auto world      = TestUtil::createBlankTestingWorld();
+    const auto mark = world->field().friendlyPenaltyMark();
+    TestUtil::setBallPosition(world, mark, Timestamp());
+    GameState state;
+    state.updateRefereeCommand(RefereeCommand::PREPARE_PENALTY_US);
+    world->updateGameState(state);
+    FSM<PenaltyKickPlayFSM> fsm(
+        PenaltyKickPlayFSM{std::make_shared<TbotsProto::AiConfig>()});
+    PriorityTacticVector published;
+    PenaltyKickPlayFSM::Update event(
+        {}, PlayUpdate(
+                world, 5, [&](PriorityTacticVector tactics) { published = tactics; },
+                InterPlayCommunication{}, [](InterPlayCommunication) {}));
+    fsm.process_event(event);
+    state.updateRefereeCommand(RefereeCommand::NORMAL_START);
+    world->updateGameState(state);
+    fsm.process_event(event);
+    fsm.process_event(event);
+
+    // The ball has been pushed well away from the mark, but slowly
+    TestUtil::setBallPosition(world, mark + Vector(1, 0), Timestamp::fromSeconds(1));
+    TestUtil::setBallVelocity(world, Vector(0.5, 0), Timestamp::fromSeconds(1));
+    fsm.process_event(event);
+    size_t kickers = 0;
+    for (const auto& priority : published)
+        for (const auto& tactic : priority)
+            if (std::dynamic_pointer_cast<PenaltyKickTactic>(tactic))
+                ++kickers;
+    EXPECT_EQ(kickers, 1);
+}
+
 TEST(PenaltyKickPlayAssignmentTest,
      replaced_setup_shooter_retreats_instead_of_halting_near_ball)
 {

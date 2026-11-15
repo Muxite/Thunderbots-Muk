@@ -93,6 +93,17 @@ struct PenaltyKickPlayFSM : PlayFSM<PenaltyKickPlayFSM>
     // setup shooter
     bool kick_started = false;
 
+    // Latched once the ball has left the penalty mark, so a kicker that is lost or
+    // replaced after the shot can never be followed by a second kick
+    bool shot_taken = false;
+    Point kick_start_ball_position;
+
+    // How far the ball must travel from where the kick started to count as shot
+    static constexpr double SHOT_TAKEN_DISTANCE_METERS = 0.5;
+
+    // The ball must also be moving at least this fast (m/s), which a dribble never is
+    static constexpr double SHOT_TAKEN_MIN_SPEED = 2.0;
+
     std::shared_ptr<PenaltyKickTactic> penalty_kick_tactic;
     std::shared_ptr<PenaltySetupTactic> shooter_setup_tactic;
     std::vector<std::shared_ptr<PenaltySetupTactic>> penalty_setup_tactics;
