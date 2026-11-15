@@ -42,7 +42,8 @@ void KickOrChipFSM::updateGetBehindBall(
 bool KickOrChipFSM::ballChicked(const Update& event)
 {
     return event.common.world_ptr->ball().hasBallBeenKicked(
-        event.control_params.kick_or_chip_direction);
+        event.control_params.kick_or_chip_direction,
+        event.control_params.min_kicked_ball_speed_meters_per_second);
 }
 
 bool KickOrChipFSM::shouldRealignWithBall(const Update& event)

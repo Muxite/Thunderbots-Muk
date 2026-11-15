@@ -1,9 +1,7 @@
 #include "software/ai/stp/tactic/penalty_kick/penalty_kick_fsm.h"
 
 PenaltyKickFSM::PenaltyKickFSM(std::shared_ptr<const TbotsProto::AiConfig> ai_config_ptr)
-    : TacticFSM<PenaltyKickFSM>(ai_config_ptr),
-      complete_approach(std::nullopt),
-      shot_angle()
+    : TacticFSM<PenaltyKickFSM>(ai_config_ptr), shot_angle()
 {
 }
 
@@ -124,74 +122,22 @@ const Point PenaltyKickFSM::evaluateNextShotPosition(std::optional<Robot> enemy_
 void PenaltyKickFSM::shoot(const Update& event,
                            boost::sml::back::process<KickOrChipFSM::Update> processEvent)
 {
-    AutoChipOrKick auto_chip_or_kick = {AutoChipOrKickMode::AUTOKICK,
-                                        PENALTY_KICK_SHOT_SPEED};
+    if (!shot_angle_chosen)
+    {
+        // Commit to a corner away from the goalie so the kicker does not keep
+        // re-aligning as the goalie moves
+        const Point next_shot_position =
+            evaluateNextShotPosition(event.common.world_ptr->enemyTeam().goalie(),
+                                     event.common.world_ptr->field());
+        shot_angle = (next_shot_position - event.common.world_ptr->ball().position())
+                         .orientation();
+        shot_angle_chosen = true;
+    }
     KickOrChipFSM::ControlParams control_params{
         .kick_or_chip_origin    = event.common.world_ptr->ball().position(),
         .kick_or_chip_direction = shot_angle,
-        .auto_chip_or_kick      = auto_chip_or_kick};
+        .auto_chip_or_kick = {AutoChipOrKickMode::AUTOKICK, PENALTY_KICK_SHOT_SPEED},
+        // A ball that was only pushed along while dribbling must not count as kicked
+        .min_kicked_ball_speed_meters_per_second = PENALTY_KICK_MIN_KICKED_BALL_SPEED};
     processEvent(KickOrChipFSM::Update(control_params, event.common));
-}
-
-void PenaltyKickFSM::updateApproachKeeper(
-    const Update& event, boost::sml::back::process<DribbleFSM::Update> processEvent)
-{
-    Field field                       = event.common.world_ptr->field();
-    std::optional<Robot> enemy_goalie = event.common.world_ptr->enemyTeam().goalie();
-    const Point next_shot_position =
-        evaluateNextShotPosition(enemy_goalie, event.common.world_ptr->field());
-    shot_angle =
-        (next_shot_position - event.common.world_ptr->ball().position()).orientation();
-    Point position = field.enemyGoalCenter() + Vector(-field.defenseAreaXLength(), 0);
-
-    DribbleFSM::ControlParams control_params{
-        .dribble_destination       = std::optional<Point>(position),
-        .final_dribble_orientation = std::optional<Angle>(Angle::zero()),
-        .allow_excessive_dribbling = false};
-    processEvent(DribbleFSM::Update(control_params, event.common));
-}
-
-void PenaltyKickFSM::adjustOrientationForShot(
-    const Update& event, boost::sml::back::process<DribbleFSM::Update> processEvent)
-{
-    std::optional<Robot> enemy_goalie = event.common.world_ptr->enemyTeam().goalie();
-    const Point next_shot_position =
-        evaluateNextShotPosition(enemy_goalie, event.common.world_ptr->field());
-    Point final_position = event.common.world_ptr->ball().position();
-    shot_angle           = (next_shot_position - final_position).orientation();
-    DribbleFSM::ControlParams control_params{
-        .dribble_destination       = std::optional<Point>(final_position),
-        .final_dribble_orientation = std::optional<Angle>(shot_angle),
-        .allow_excessive_dribbling = false};
-    processEvent(DribbleFSM::Update(control_params, event.common));
-}
-
-bool PenaltyKickFSM::takePenaltyShot(const Update& event)
-{
-    Field field = event.common.world_ptr->field();
-
-    // if the complete approach timestamp hasn't been set (because this is the
-    // first run), set the initial
-    //  values
-    if (!complete_approach.has_value())
-    {
-        Timestamp future_approach_complete_time =
-            event.common.world_ptr->getMostRecentTimestamp() +
-            PENALTY_FINISH_APPROACH_TIMEOUT;
-        complete_approach = std::optional<Timestamp>(future_approach_complete_time);
-    }
-    std::optional<Robot> enemy_goalie = event.common.world_ptr->enemyTeam().goalie();
-    Timestamp force_shoot_timestamp =
-        complete_approach.value() + PENALTY_FORCE_SHOOT_TIMEOUT;
-    bool should_shoot =
-        evaluatePenaltyShot(enemy_goalie, field,
-                            event.common.world_ptr->ball().position(),
-                            event.common.robot) ||
-        (event.common.world_ptr->getMostRecentTimestamp() >= force_shoot_timestamp);
-    return should_shoot;
-}
-
-bool PenaltyKickFSM::timeOutApproach(const Update& event)
-{
-    return event.common.world_ptr->getMostRecentTimestamp() > complete_approach;
 }

@@ -77,5 +77,8 @@ struct PenaltyKickEnemyPlayFSM : PlayFSM<PenaltyKickEnemyPlayFSM>
     }
 
    private:
+    // Publishes the tactics keeping all non-goalie robots behind the penalty mark
+    void publishRobotPositions(const Update& event);
+
     std::vector<std::shared_ptr<MoveTactic>> move_tactics;
 };

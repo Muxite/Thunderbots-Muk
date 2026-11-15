@@ -54,6 +54,31 @@ class Tactic
     virtual void setLastExecutionRobot(std::optional<RobotId> last_execution_robot) = 0;
 
     /**
+     * Gets the robot that last executed the primitive for this tactic
+     *
+     * @return the id of the last execution robot, if any
+     */
+    virtual std::optional<RobotId> getLastExecutionRobot() const = 0;
+
+    /**
+     * Whether robot-to-tactic assignment should stick with the robot that last
+     * executed this tactic, rather than re-selecting the cheapest robot every tick.
+     * Tactics that must not hand over between robots mid-execution (e.g. a penalty
+     * kick) override this to return true.
+     *
+     * @return true if assignment should prefer the last execution robot
+     */
+    virtual bool hasStickyAssignment() const = 0;
+
+    /**
+     * Sets whether robot-to-tactic assignment should stick with the last execution
+     * robot (see hasStickyAssignment)
+     *
+     * @param sticky_assignment true to prefer the last execution robot
+     */
+    virtual void setStickyAssignment(bool sticky_assignment) = 0;
+
+    /**
      * Updates and returns a set of primitives for all friendly robots from this tactic
      *
      * @param world The updated world

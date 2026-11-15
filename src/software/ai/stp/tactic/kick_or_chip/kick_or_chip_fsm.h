@@ -24,12 +24,16 @@ struct KickOrChipFSM : TacticFSM<KickOrChipFSM>
         // speed of the kick, and if the mode is AUTOCHIP, then the parameter will be the
         // distance of the chip.
         AutoChipOrKick auto_chip_or_kick;
+        // The minimum speed the ball must reach in the kick direction for the kick to
+        // be considered done. The default is low enough to be satisfied by a ball that
+        // is merely being pushed along, so tactics where that matters should raise it.
+        double min_kicked_ball_speed_meters_per_second = 0.5;
     };
 
     using Update = TacticFSM<KickOrChipFSM>::Update;
 
     /**
-     * Constructor for KickFSM
+     * Constructor for KickOrChipFSM
      *
      * @param ai_config_ptr shared pointer to ai_config
      */
@@ -38,14 +42,14 @@ struct KickOrChipFSM : TacticFSM<KickOrChipFSM>
     /**
      * Action that updates the primitive to kick or chip the ball
      *
-     * @param event KickFSM::Update event
+     * @param event KickOrChipFSM::Update event
      */
     void kickOrChipBall(const Update& event);
 
     /**
      * Action that updates the GetBehindBallFSM
      *
-     * @param event KickFSM::Update event
+     * @param event KickOrChipFSM::Update event
      * @param processEvent processes the GetBehindBallFSM::Update
      */
     void updateGetBehindBall(
@@ -55,7 +59,7 @@ struct KickOrChipFSM : TacticFSM<KickOrChipFSM>
     /**
      * Guard that checks if the ball has been chicked
      *
-     * @param event KickFSM::Update event
+     * @param event KickOrChipFSM::Update event
      *
      * @return if the ball has been chicked
      */
@@ -64,7 +68,7 @@ struct KickOrChipFSM : TacticFSM<KickOrChipFSM>
     /**
      * Guard that checks if the robot is aligned for the kick
      *
-     * @param event KickFSM::Update event
+     * @param event KickOrChipFSM::Update event
      *
      * @return if the robot is aligned for the kick
      */

@@ -6,6 +6,10 @@ PenaltyKickTactic::PenaltyKickTactic(
           {RobotCapability::Move, RobotCapability::Dribble, RobotCapability::Kick},
           ai_config_ptr)
 {
+    // The kick must not be handed over between robots mid-execution: every robot that
+    // is not the current kicker has its FSM reset each tick, so its estimated cost
+    // (reaching the ball) would always undercut the kicker's (dribbling to the shot).
+    setStickyAssignment(true);
 }
 
 void PenaltyKickTactic::updateControlParams() {}

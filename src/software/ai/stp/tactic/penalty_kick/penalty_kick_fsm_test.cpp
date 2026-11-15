@@ -20,39 +20,70 @@ TEST(PenaltyKickFSM, test_transitions)
 
     fsm.process_event(PenaltyKickFSM::Update(
         control_params, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
-    EXPECT_TRUE(fsm.is(boost::sml::state<DribbleFSM>));
-
-    double shot_x_position =
-        ((world->field().totalXLength() / 2) - (world->field().totalXLength() * 1.0 / 3));
-
-    Point position = Point(shot_x_position - 0.1, 0);
-    robot          = ::TestUtil::createRobotAtPos(position);
-    ::TestUtil::setBallPosition(world, position, Timestamp::fromSeconds(1));
-    fsm.process_event(PenaltyKickFSM::Update(
-        control_params, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
-    EXPECT_TRUE(fsm.is(boost::sml::state<DribbleFSM>));
-
-    position = Point(shot_x_position + 0.3, 0);
-    robot    = ::TestUtil::createRobotAtPos(position);
-    ::TestUtil::setBallPosition(world, position, Timestamp::fromSeconds(2));
-    fsm.process_event(PenaltyKickFSM::Update(
-        control_params, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
+    // Shoot on the first update, without approaching the keeper or waiting.
     EXPECT_TRUE(fsm.is(boost::sml::state<KickOrChipFSM>));
     EXPECT_TRUE(fsm.is<decltype(boost::sml::state<KickOrChipFSM>)>(
         boost::sml::state<GetBehindBallFSM>));
 
-    ::TestUtil::setBallPosition(world, position + Vector(0.1, 0),
-                                Timestamp::fromSeconds(2));
+    robot = ::TestUtil::createRobotAtPos(world->ball().position() - Vector(0.2, 0));
     fsm.process_event(PenaltyKickFSM::Update(
         control_params, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
     EXPECT_TRUE(fsm.is(boost::sml::state<KickOrChipFSM>));
     EXPECT_TRUE(fsm.is<decltype(boost::sml::state<KickOrChipFSM>)>(
         boost::sml::state<KickOrChipFSM::KickOrChipState>));
 
-    ::TestUtil::setBallVelocity(world, Vector(5, 0), Timestamp::fromSeconds(4));
+    // A ball pushed forward slowly must not finish the penalty.
+    ::TestUtil::setBallVelocity(world, Vector(1, 0), Timestamp::fromSeconds(1));
+    fsm.process_event(PenaltyKickFSM::Update(
+        control_params, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
+    EXPECT_TRUE(fsm.is(boost::sml::state<KickOrChipFSM>));
+    EXPECT_TRUE(fsm.is<decltype(boost::sml::state<KickOrChipFSM>)>(
+        boost::sml::state<KickOrChipFSM::KickOrChipState>));
+
+    ::TestUtil::setBallVelocity(world, Vector(5, 0), Timestamp::fromSeconds(2));
     fsm.process_event(PenaltyKickFSM::Update(
         control_params, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
 
+    EXPECT_TRUE(fsm.is(boost::sml::X));
+}
+
+TEST(PenaltyKickFSM, shot_direction_is_committed_when_goalie_moves)
+{
+    auto world      = ::TestUtil::createBlankTestingWorld();
+    const auto ball = world->field().friendlyPenaltyMark();
+    ::TestUtil::setBallPosition(world, ball, Timestamp());
+    auto set_goalie = [&](double y)
+    {
+        Team enemy({Robot(0, Point(world->field().enemyGoalCenter().x(), y), Vector(),
+                          Angle::half(), AngularVelocity::zero(), Timestamp())});
+        enemy.assignGoalie(0);
+        world->updateEnemyTeamState(enemy);
+    };
+    set_goalie(0.2);
+    const Angle direction =
+        (PenaltyKickFSM::evaluateNextShotPosition(world->enemyTeam().goalie(),
+                                                world->field()) -
+         ball)
+            .orientation();
+    Robot robot(0, ball - Vector::createFromAngle(direction).normalize(0.2), Vector(),
+                direction, AngularVelocity::zero(), Timestamp());
+    auto config = std::make_shared<TbotsProto::AiConfig>();
+    FSM<PenaltyKickFSM> fsm{PenaltyKickFSM(config), DribbleFSM(config),
+                            KickOrChipFSM(config), GetBehindBallFSM(config)};
+    auto update = [&]()
+    {
+        fsm.process_event(PenaltyKickFSM::Update(
+            {}, TacticUpdate(robot, world, [](std::shared_ptr<Primitive>) {})));
+    };
+    update();
+    update();
+    ASSERT_TRUE(fsm.is<decltype(boost::sml::state<KickOrChipFSM>)>(
+        boost::sml::state<KickOrChipFSM::KickOrChipState>));
+
+    set_goalie(-0.2);
+    ::TestUtil::setBallVelocity(world, Vector::createFromAngle(direction).normalize(5),
+                               Timestamp::fromSeconds(1));
+    update();
     EXPECT_TRUE(fsm.is(boost::sml::X));
 }
 

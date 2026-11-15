@@ -9,6 +9,14 @@ PenaltyKickEnemyPlayFSM::PenaltyKickEnemyPlayFSM(
 
 void PenaltyKickEnemyPlayFSM::setupPosition(const Update& event)
 {
+    // Move goalie to the goal line
+    event.control_params.goalie_tactic->updateControlParams(true);
+
+    publishRobotPositions(event);
+}
+
+void PenaltyKickEnemyPlayFSM::publishRobotPositions(const Update& event)
+{
     PriorityTacticVector tactics_to_run = {{}};
 
     // Adjust number of tactics based on the number of robots available
@@ -31,9 +39,6 @@ void PenaltyKickEnemyPlayFSM::setupPosition(const Update& event)
             event.common.world_ptr->field().enemyGoalCenter().toVector().orientation());
     }
 
-    // Move goalie to the goal line
-    event.control_params.goalie_tactic->updateControlParams(true);
-
     tactics_to_run[0].insert(tactics_to_run[0].end(), move_tactics.begin(),
                              move_tactics.end());
     event.common.set_tactics(tactics_to_run);
@@ -43,6 +48,10 @@ void PenaltyKickEnemyPlayFSM::defendKick(const Update& event)
 {
     // Allow goalie to move freely and defend against penalty kick
     event.control_params.goalie_tactic->updateControlParams(false);
+
+    // Keep the other robots in position behind the penalty line. Publishing no tactics
+    // would make them stop wherever they happen to be when the kick starts.
+    publishRobotPositions(event);
 }
 
 bool PenaltyKickEnemyPlayFSM::setupPositionDone(const Update& event)

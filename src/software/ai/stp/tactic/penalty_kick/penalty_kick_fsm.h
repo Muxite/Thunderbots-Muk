@@ -20,7 +20,7 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
     };
 
     /**
-     * Constructor for DribbleFSM
+     * Constructor for PenaltyKickFSM
      *
      * @param ai_config_ptr shared pointer to ai_config
      */
@@ -56,49 +56,10 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
      * Action that causes the shooter to shoot the ball.
      *
      * @param event          PenaltyKickFSM::Update event
-     * @param processEvent   processes the KickFSM::Update
+     * @param processEvent   processes the KickOrChipFSM::Update
      */
     void shoot(const Update& event,
                boost::sml::back::process<KickOrChipFSM::Update> processEvent);
-
-    /**
-     * Action that updates the shooter's approach to the opposition net.
-     *
-     * @param event          PenaltyKickFSM::Update event
-     * @param processEvent   processes the DribbleFSM::Update
-     */
-    void updateApproachKeeper(const Update& event,
-                              boost::sml::back::process<DribbleFSM::Update> processEvent);
-
-    /**
-     * Action that orients the shooter to prepare for a shot.
-     *
-     * @param event          PenaltyKickFSM::Update
-     * @param processEvent   processes the DribbleFSM::Update
-     */
-    void adjustOrientationForShot(
-        const Update& event, boost::sml::back::process<DribbleFSM::Update> processEvent);
-
-    /**
-     * Guard that returns true if the shooter has a good shot on goal or if it is
-     * forced to shoot due to the penalty timeout.
-     *
-     * Requires complete approach to already be set.
-     *
-     * @param event  PenaltyKickFSM::Update
-     */
-    bool takePenaltyShot(const Update& event);
-
-    /**
-     * Returns true if we pass the timeout for completing the approach play towards
-     * the keeper.
-     *
-     * Requires complete approach to already be set.
-     *
-     * @param event PenaltyKickFSM::Update
-     */
-    bool timeOutApproach(const Update& event);
-
 
     auto operator()()
     {
@@ -109,25 +70,20 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
 
         DEFINE_SML_EVENT(Update)
 
-        DEFINE_SML_GUARD(takePenaltyShot)
-        DEFINE_SML_GUARD(timeOutApproach)
-
         DEFINE_SML_SUB_FSM_UPDATE_ACTION(shoot, KickOrChipFSM)
-        DEFINE_SML_SUB_FSM_UPDATE_ACTION(updateApproachKeeper, DribbleFSM)
-        DEFINE_SML_SUB_FSM_UPDATE_ACTION(adjustOrientationForShot, DribbleFSM)
 
         return make_transition_table(
             // src_state + event [guard] / action = dest state
-            *DribbleFSM_S + Update_E[!takePenaltyShot_G] / updateApproachKeeper_A,
-            DribbleFSM_S + Update_E[timeOutApproach_G] / shoot_A = KickOrChipFSM_S,
-            DribbleFSM_S + Update_E / adjustOrientationForShot_A,
-            DribbleFSM_S    = KickOrChipFSM_S, KickOrChipFSM_S + Update_E / shoot_A,
-            KickOrChipFSM_S = X, X + Update_E / SET_STOP_PRIMITIVE_ACTION = X);
+            *DribbleFSM_S + Update_E / shoot_A = KickOrChipFSM_S,
+            KickOrChipFSM_S + Update_E / shoot_A, KickOrChipFSM_S = X,
+            X + Update_E / SET_STOP_PRIMITIVE_ACTION = X);
     };
 
    private:
-    static constexpr double PENALTY_KICK_POST_OFFSET = 0.03;
+    static constexpr double PENALTY_KICK_POST_OFFSET = 0.12;
     static constexpr double PENALTY_KICK_SHOT_SPEED  = 5.0;
+    // the ball must at least reach this speed for the kick to be considered taken
+    static constexpr double PENALTY_KICK_MIN_KICKED_BALL_SPEED = 3.0;
 
     // expected maximum acceleration of the opposition goalie robot
     static constexpr double PENALTY_KICK_GOALIE_MAX_ACC = 1.5;
@@ -138,13 +94,6 @@ struct PenaltyKickFSM : TacticFSM<PenaltyKickFSM>
     // which we decide to potentially shoot
     static constexpr double PENALTY_KICK_MIN_SHOT_X_DISTANCE_FACTOR = 1.0 / 3.0;
 
-    // timeout that forces a shot after the robot approaches the ball and advances
-    // towards the keeper
-    // these two timeouts together must be <= 9 seconds
-    static const inline Duration PENALTY_FORCE_SHOOT_TIMEOUT = Duration::fromSeconds(4);
-    static const inline Duration PENALTY_FINISH_APPROACH_TIMEOUT =
-        Duration::fromSeconds(4);
-
-    std::optional<Timestamp> complete_approach;
     Angle shot_angle;
+    bool shot_angle_chosen = false;
 };

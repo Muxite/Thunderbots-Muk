@@ -232,7 +232,20 @@ Play::assignTactics(const WorldPtr& world_ptr, TacticVector tactic_vector,
                 robot_capabilities.begin(), robot_capabilities.end(),
                 std::inserter(missing_capabilities, missing_capabilities.begin()));
 
-            if (missing_capabilities.size() > 0)
+            const bool is_sticky_incumbent =
+                tactic->hasStickyAssignment() &&
+                tactic->getLastExecutionRobot() == std::optional<RobotId>(robot.id()) &&
+                missing_capabilities.empty();
+
+            if (is_sticky_incumbent)
+            {
+                // Keep the robot that is already executing this tactic. Robots that
+                // are not executing it have their tactic FSMs reset every tick, so
+                // their estimated cost is not comparable to the incumbent's and
+                // would otherwise cause the tactic to flip between robots.
+                matrix(row, col) = 0.0;
+            }
+            else if (missing_capabilities.size() > 0)
             {
                 // We arbitrarily increase the cost, so that robots with missing
                 // capabilities are not assigned
@@ -242,6 +255,13 @@ Play::assignTactics(const WorldPtr& world_ptr, TacticVector tactic_vector,
             {
                 // capability requirements are satisfied, use real cost
                 matrix(row, col) = robot_cost_for_tactic;
+            }
+
+            if (tactic->hasStickyAssignment() && !is_sticky_incumbent)
+            {
+                // Keep every other robot strictly costlier than the incumbent's cost
+                // of exactly zero, so ties can never favour a non-incumbent
+                matrix(row, col) = std::max(matrix(row, col), 1e-6);
             }
         }
     }

@@ -1,5 +1,7 @@
+load("@gameplay_tests_deps//:requirements.bzl", "requirement")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:defs.bzl", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -37,5 +39,27 @@ cc_test(
         ":penalty_kick_play",
         "//shared/test_util:tbots_gtest_main",
         "//software/test_util",
+    ],
+)
+
+py_test(
+    name = "penalty_kick_play_test",
+    srcs = ["penalty_kick_play_test.py"],
+    deps = [
+        "//software:conftest",
+        "//software/gameplay_tests/validation:validations",
+        requirement("pytest"),
+    ],
+)
+
+# Experiment harness measuring the simulated penalty goal rate; not a regression test.
+py_test(
+    name = "penalty_kick_goal_rate_test",
+    srcs = ["penalty_kick_goal_rate_test.py"],
+    tags = ["manual"],
+    deps = [
+        "//software:conftest",
+        "//software/gameplay_tests/validation:validations",
+        requirement("pytest"),
     ],
 )

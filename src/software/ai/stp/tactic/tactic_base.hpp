@@ -87,6 +87,17 @@ class TacticBase : public Tactic
     void setLastExecutionRobot(std::optional<RobotId> last_execution_robot);
 
     /**
+     * Gets the robot that last executed the primitive for this tactic
+     *
+     * @return the id of the last execution robot, if any
+     */
+    std::optional<RobotId> getLastExecutionRobot() const;
+
+    bool hasStickyAssignment() const override;
+
+    void setStickyAssignment(bool sticky_assignment) override;
+
+    /**
      * Updates and returns a set of primitives for all friendly robots from this tactic
      *
      * @param world The updated world
@@ -106,6 +117,9 @@ class TacticBase : public Tactic
 
    protected:
     std::optional<RobotId> last_execution_robot;
+
+    // Whether assignment should prefer last_execution_robot
+    bool sticky_assignment = false;
 
     // A shared pointer to the ai configuration to configure ai behaviour, shared by all
     // Plays, Tactics, and FSMs
@@ -230,6 +244,25 @@ void TacticBase<TacticFsm, TacticSubFsms...>::setLastExecutionRobot(
     std::optional<RobotId> last_execution_robot)
 {
     this->last_execution_robot = last_execution_robot;
+}
+
+template <class TacticFsm, class... TacticSubFsms>
+bool TacticBase<TacticFsm, TacticSubFsms...>::hasStickyAssignment() const
+{
+    return sticky_assignment;
+}
+
+template <class TacticFsm, class... TacticSubFsms>
+void TacticBase<TacticFsm, TacticSubFsms...>::setStickyAssignment(bool sticky_assignment)
+{
+    this->sticky_assignment = sticky_assignment;
+}
+
+template <class TacticFsm, class... TacticSubFsms>
+std::optional<RobotId> TacticBase<TacticFsm, TacticSubFsms...>::getLastExecutionRobot()
+    const
+{
+    return last_execution_robot;
 }
 
 template <class TacticFsm, class... TacticSubFsms>
